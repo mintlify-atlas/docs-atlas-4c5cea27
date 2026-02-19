@@ -1,80 +1,276 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Get up and running with GAIA in under 5 minutes
 ---
 
-## Get started in three steps
+## Get Started in Minutes
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+This guide will help you start using GAIA immediately. Choose your preferred method below.
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="Use GAIA Cloud"
+    icon="cloud"
+    href="#cloud-setup"
+  >
+    Fastest way - no installation required
+  </Card>
+  <Card
+    title="Self-Host GAIA"
+    icon="server"
+    href="#self-hosting"
+  >
+    Full control with Docker deployment
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+---
+
+## Cloud Setup
+
+The fastest way to start using GAIA is through our cloud platform.
+
+<Steps>
+  <Step title="Create Your Account">
+    Visit [heygaia.io](https://heygaia.io) and sign up with your email or social login.
+    
+    <Note>
+      No credit card required to get started!
+    </Note>
+  </Step>
+
+  <Step title="Connect Your First Integration">
+    GAIA becomes more powerful when connected to your tools. Start with Gmail or Calendar:
+    
+    1. Navigate to **Settings** → **Integrations**
+    2. Click **Connect** next to Gmail or Google Calendar
+    3. Authorize GAIA to access your account
+    
+    <Tip>
+      You can add more integrations later like Notion, Slack, Linear, GitHub, and hundreds more!
+    </Tip>
+  </Step>
+
+  <Step title="Have Your First Conversation">
+    Start chatting with GAIA to see what it can do:
+    
+    Try asking:
+    - "Summarize my unread emails from today"
+    - "What's on my calendar this week?"
+    - "Create a todo to review the quarterly report by Friday"
+    - "Schedule a meeting with Sarah for next Tuesday at 2pm"
+  </Step>
+
+  <Step title="Create Your First Workflow">
+    Automate repetitive tasks with workflows:
+    
+    1. Click **Workflows** in the sidebar
+    2. Browse the workflow marketplace for templates
+    3. Click **Use Template** on any workflow
+    4. Customize it to your needs
+    5. Activate it
+    
+    **Popular starter workflows:**
+    - Daily email digest every morning
+    - Automatic meeting notes from calendar events
+    - Weekly task summary and planning
+  </Step>
+</Steps>
+
+### Download Desktop & Mobile Apps
+
+Get GAIA on all your devices for seamless productivity:
+
+<Tabs>
+  <Tab title="Desktop">
+    <CardGroup cols={3}>
+      <Card title="macOS" icon="apple">
+        Download from [heygaia.io/download](https://heygaia.io/download)
+      </Card>
+      <Card title="Windows" icon="windows">
+        Download from [heygaia.io/download](https://heygaia.io/download)
+      </Card>
+      <Card title="Linux" icon="linux">
+        Download from [heygaia.io/download](https://heygaia.io/download)
+      </Card>
+    </CardGroup>
+  </Tab>
+  
+  <Tab title="Mobile">
+    <CardGroup cols={2}>
+      <Card title="iOS" icon="app-store-ios">
+        Coming soon - join the waitlist
+      </Card>
+      <Card title="Android" icon="google-play">
+        Coming soon - join the waitlist
+      </Card>
+    </CardGroup>
+  </Tab>
+</Tabs>
+
+---
+
+## Self-Hosting
+
+Deploy GAIA on your own infrastructure for complete control and data privacy.
+
+<Steps>
+  <Step title="Prerequisites">
+    Ensure you have these installed:
+    - Docker and Docker Compose
+    - Git
+    - 4GB+ RAM available
+    - PostgreSQL, MongoDB, Redis (or use Docker Compose)
+  </Step>
+
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/theexperiencecompany/gaia.git
+    cd gaia
+    ```
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Copy the example environment files and configure them:
+    
+    ```bash
+    # API configuration
+    cp apps/api/.env.example apps/api/.env
+    
+    # Web app configuration  
+    cp apps/web/.env.example apps/web/.env.local
+    ```
+    
+    <Warning>
+      You'll need to configure:
+      - Database connection strings
+      - API keys for LLM providers (OpenAI, Anthropic, etc.)
+      - OAuth credentials for integrations
+    </Warning>
+    
+    See the [Self-Hosting Guide](https://docs.heygaia.io/self-hosting/overview) for detailed configuration.
+  </Step>
+
+  <Step title="Start with Docker Compose">
+    Launch all services with Docker Compose:
+    
+    ```bash
+    cd infra/docker
+    docker compose up
+    ```
+    
+    This starts:
+    - FastAPI backend (port 8000)
+    - Next.js web app (port 3000)
+    - PostgreSQL database
+    - MongoDB
+    - Redis
+    - ChromaDB for vector storage
+    - RabbitMQ message broker
+    
+    <Tip>
+      Use profiles to start specific components:
+      ```bash
+      # Backend only
+      docker compose --profile backend up
+      
+      # Worker only
+      docker compose --profile worker up
+      ```
+    </Tip>
+  </Step>
+
+  <Step title="Access GAIA">
+    Open your browser and navigate to:
+    
+    - **Web App**: http://localhost:3000
+    - **API Docs**: http://localhost:8000/docs
+    
+    Create your first account and start using GAIA!
+  </Step>
+</Steps>
+
+### Development Setup
+
+Contributing to GAIA or want to run from source?
+
+<Steps>
+  <Step title="Install Dependencies">
+    GAIA uses pnpm for JavaScript and uv for Python:
+    
+    ```bash
+    # Install Node dependencies
+    pnpm install
+    
+    # Sync Python dependencies for API
+    nx run api:sync
+    ```
+  </Step>
+
+  <Step title="Run Development Servers">
+    Start the development servers:
+    
+    ```bash
+    # Run web app (with Turbopack)
+    nx dev web
+    
+    # Run API backend (with hot reload)
+    nx dev api
+    
+    # Run background worker
+    nx worker api
+    ```
+  </Step>
+
+  <Step title="Access the Application">
+    - **Web App**: http://localhost:3000
+    - **API**: http://localhost:8000
+    - **API Docs**: http://localhost:8000/docs
+  </Step>
+</Steps>
+
+---
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Explore Features"
+    icon="compass"
+    href="/features"
+  >
+    Learn about GAIA's powerful capabilities
+  </Card>
+  <Card
+    title="Browse Use Cases"
+    icon="book-open"
+    href="/use-cases"
+  >
+    See how others are using GAIA
+  </Card>
+  <Card
+    title="Connect Integrations"
+    icon="plug"
+    href="https://docs.heygaia.io/integrations"
+  >
+    Connect your favorite tools
+  </Card>
+  <Card
+    title="Join Community"
+    icon="users"
+    href="https://discord.heygaia.io"
+  >
+    Get help and share ideas
+  </Card>
+</CardGroup>
+
+---
+
+## Need Help?
+
+If you run into any issues:
+
+- Check the [Documentation](https://docs.heygaia.io)
+- Join our [Discord](https://discord.heygaia.io) for community support
+- Contact us on [WhatsApp](https://whatsapp.heygaia.io)
+- Report issues on [GitHub](https://github.com/theexperiencecompany/gaia/issues)

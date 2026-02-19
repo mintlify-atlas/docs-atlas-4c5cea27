@@ -1,0 +1,416 @@
+---
+title: 'Email API'
+description: 'Send, search, and manage Gmail messages with AI assistance'
+---
+
+# Email API
+
+The Email API provides comprehensive Gmail integration with AI-powered composition, advanced search, drafts, labels, and bulk operations.
+
+## Authentication
+
+<Warning>
+  Email endpoints require Gmail integration. Users must connect their Google account before using these endpoints.
+</Warning>
+
+## Endpoints
+
+### List Messages
+
+List inbox messages with pagination.
+
+```bash
+GET /api/v1/gmail/messages
+```
+
+<ParamField query="max_results" type="integer" default="20">
+  Maximum number of messages to return
+</ParamField>
+
+<ParamField query="pageToken" type="string">
+  Page token for pagination
+</ParamField>
+
+### Get Message
+
+Get a specific message by ID.
+
+```bash
+GET /api/v1/gmail/message/{message_id}
+```
+
+### Search Messages
+
+Advanced search with multiple filters.
+
+```bash
+GET /api/v1/gmail/search
+```
+
+<ParamField query="query" type="string">
+  Free text search query
+</ParamField>
+
+<ParamField query="sender" type="string">
+  Filter by sender email
+</ParamField>
+
+<ParamField query="recipient" type="string">
+  Filter by recipient email
+</ParamField>
+
+<ParamField query="subject" type="string">
+  Filter by subject
+</ParamField>
+
+<ParamField query="has_attachment" type="boolean">
+  Filter messages with attachments
+</ParamField>
+
+<ParamField query="date_from" type="string">
+  Filter messages after date (YYYY/MM/DD)
+</ParamField>
+
+<ParamField query="date_to" type="string">
+  Filter messages before date (YYYY/MM/DD)
+</ParamField>
+
+<ParamField query="label" type="string">
+  Filter by label
+</ParamField>
+
+<ParamField query="is_read" type="boolean">
+  Filter by read/unread status
+</ParamField>
+
+### Send Email
+
+Send an email with optional attachments.
+
+```bash
+POST /api/v1/gmail/send
+```
+
+Form data:
+- `to` (required) - Recipient email(s), comma-separated
+- `subject` (required) - Email subject
+- `body` (required) - Email body
+- `cc` (optional) - CC recipients, comma-separated
+- `bcc` (optional) - BCC recipients, comma-separated
+- `is_html` (optional) - Whether body is HTML
+- `thread_id` (optional) - Thread ID to reply to
+- `attachments` (optional) - File uploads
+
+### Send Email (JSON)
+
+Send email without attachments using JSON.
+
+```bash
+POST /api/v1/gmail/send-json
+```
+
+```json Request
+{
+  "to": ["recipient@example.com"],
+  "subject": "Project Update",
+  "body": "Here's the latest update...",
+  "cc": ["manager@example.com"],
+  "bcc": []
+}
+```
+
+## AI Composition
+
+### Compose with AI
+
+Generate email content with AI assistance.
+
+```bash
+POST /api/v1/mail/ai/compose
+```
+
+```json Request
+{
+  "prompt": "Write a professional email declining a meeting",
+  "subject": "Re: Meeting Request",
+  "body": "",
+  "writingStyle": "Professional",
+  "contentLength": "Medium",
+  "clarityOption": "Clear and concise"
+}
+```
+
+```json Response
+{
+  "subject": "Re: Meeting Request - Unable to Attend",
+  "body": "Dear [Name],\n\nThank you for your meeting invitation..."
+}
+```
+
+## Message Actions
+
+### Mark as Read
+
+Mark messages as read.
+
+```bash
+POST /api/v1/gmail/mark-as-read
+```
+
+```json Request
+{
+  "message_ids": ["msg_1", "msg_2", "msg_3"]
+}
+```
+
+### Mark as Unread
+
+Mark messages as unread.
+
+```bash
+POST /api/v1/gmail/mark-as-unread
+```
+
+### Star Messages
+
+Add star to messages.
+
+```bash
+POST /api/v1/gmail/star
+```
+
+### Unstar Messages
+
+Remove star from messages.
+
+```bash
+POST /api/v1/gmail/unstar
+```
+
+### Trash Messages
+
+Move messages to trash.
+
+```bash
+POST /api/v1/gmail/trash
+```
+
+### Restore Messages
+
+Restore messages from trash.
+
+```bash
+POST /api/v1/gmail/untrash
+```
+
+### Archive Messages
+
+Archive messages (remove from inbox).
+
+```bash
+POST /api/v1/gmail/archive
+```
+
+### Move to Inbox
+
+Move messages to inbox.
+
+```bash
+POST /api/v1/gmail/move-to-inbox
+```
+
+## Drafts
+
+### List Drafts
+
+Get all draft emails.
+
+```bash
+GET /api/v1/gmail/drafts
+```
+
+### Create Draft
+
+Create a new draft.
+
+```bash
+POST /api/v1/gmail/drafts
+```
+
+```json Request
+{
+  "to": ["recipient@example.com"],
+  "subject": "Draft Email",
+  "body": "Email content...",
+  "is_html": false
+}
+```
+
+### Get Draft
+
+Get a specific draft.
+
+```bash
+GET /api/v1/gmail/drafts/{draft_id}
+```
+
+### Update Draft
+
+Update an existing draft.
+
+```bash
+PUT /api/v1/gmail/drafts/{draft_id}
+```
+
+### Delete Draft
+
+Delete a draft.
+
+```bash
+DELETE /api/v1/gmail/drafts/{draft_id}
+```
+
+### Send Draft
+
+Send an existing draft.
+
+```bash
+POST /api/v1/gmail/drafts/{draft_id}/send
+```
+
+## Labels
+
+### List Labels
+
+Get all Gmail labels.
+
+```bash
+GET /api/v1/gmail/labels
+```
+
+### Create Label
+
+Create a new label.
+
+```bash
+POST /api/v1/gmail/labels
+```
+
+```json Request
+{
+  "name": "Important Projects",
+  "label_list_visibility": "labelShow",
+  "message_list_visibility": "show"
+}
+```
+
+### Update Label
+
+Update an existing label.
+
+```bash
+PUT /api/v1/gmail/labels/{label_id}
+```
+
+### Delete Label
+
+Delete a label.
+
+```bash
+DELETE /api/v1/gmail/labels/{label_id}
+```
+
+### Apply Labels
+
+Apply labels to messages.
+
+```bash
+POST /api/v1/gmail/messages/apply-label
+```
+
+```json Request
+{
+  "message_ids": ["msg_1", "msg_2"],
+  "label_ids": ["label_1", "label_2"]
+}
+```
+
+### Remove Labels
+
+Remove labels from messages.
+
+```bash
+POST /api/v1/gmail/messages/remove-label
+```
+
+## Email Threads
+
+### Get Thread
+
+Get a complete email thread.
+
+```bash
+GET /api/v1/gmail/thread/{thread_id}
+```
+
+```json Response
+{
+  "thread_id": "thread_123",
+  "messages_count": 5,
+  "thread": {
+    "id": "thread_123",
+    "messages": [...]
+  }
+}
+```
+
+## Email Importance
+
+### Get Importance Summaries
+
+Get AI-generated importance summaries for emails.
+
+```bash
+GET /api/v1/gmail/importance-summaries
+```
+
+<ParamField query="limit" type="integer" default="50">
+  Maximum number of summaries
+</ParamField>
+
+<ParamField query="important_only" type="boolean" default="false">
+  Only return important emails
+</ParamField>
+
+### Get Single Importance Summary
+
+Get importance summary for a specific email.
+
+```bash
+GET /api/v1/gmail/importance-summary/{message_id}
+```
+
+### Bulk Importance Summaries
+
+Get summaries for multiple emails.
+
+```bash
+POST /api/v1/gmail/importance-summaries/bulk
+```
+
+```json Request
+{
+  "message_ids": ["msg_1", "msg_2", "msg_3"]
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workflows API" icon="diagram-project" href="/api/workflows">
+    Automate email workflows
+  </Card>
+  <Card title="Calendar API" icon="calendar" href="/api/calendar">
+    Manage calendar events
+  </Card>
+</CardGroup>

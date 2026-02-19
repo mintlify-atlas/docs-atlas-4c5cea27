@@ -1,0 +1,621 @@
+---
+title: "Workflows"
+description: "Automated action sequences that connect your tools and services into powerful automations"
+---
+
+# Workflows
+
+Workflows are GAIA's most powerful feature—intelligent automation sequences that execute complex multi-step tasks across your connected integrations. Unlike simple scripts, GAIA workflows leverage AI to understand context, make decisions, and adapt to changing situations.
+
+## What Makes GAIA Workflows Different?
+
+<CardGroup cols={2}>
+  <Card title="AI-Powered Execution" icon="brain">
+    Each step is executed by an intelligent agent that understands context and makes decisions
+  </Card>
+  <Card title="Natural Language Definition" icon="comments">
+    Describe what you want in plain English—no coding required
+  </Card>
+  <Card title="Cross-Integration" icon="link">
+    Seamlessly connect Gmail, Calendar, Notion, Slack, GitHub, and 100+ more services
+  </Card>
+  <Card title="Self-Learning" icon="graduation-cap">
+    Workflows improve over time as GAIA learns optimal approaches
+  </Card>
+</CardGroup>
+
+## Architecture Overview
+
+### Workflow Components
+
+```python
+# From: apps/api/app/models/workflow_models.py:180-244
+
+class Workflow(BaseModel):
+    id: str                              # Unique identifier
+    user_id: str                         # Owner
+    title: str                           # "Process Client Proposals"
+    description: str                     # What this workflow does
+    steps: List[WorkflowStep]            # Ordered action sequence (max 10)
+    trigger_config: TriggerConfig        # When/how to execute
+    activated: bool                      # Is it enabled?
+    
+    # Execution tracking
+    total_executions: int
+    successful_executions: int
+    last_executed_at: datetime
+```
+
+### Step Structure
+
+```python
+# From: apps/api/app/models/workflow_models.py:32-44
+
+class WorkflowStep(BaseModel):
+    id: str
+    title: str          # "Search for client context"
+    category: str       # "gmail" - Routes to appropriate subagent
+    description: str    # Detailed instructions for execution
+```
+
+<Info>
+Steps are **abstract descriptions**, not specific tool calls. The executing agent decides which exact tools to use based on context.
+</Info>
+
+## Trigger Types
+
+### 1. Manual Triggers
+
+User-initiated execution—perfect for on-demand tasks:
+
+```typescript
+// Example: "Prepare for client meeting"
+const workflow = {
+  trigger_type: "manual",
+  steps: [
+    {
+      title: "Search client email history",
+      category: "gmail",
+      description: "Find all emails from client in last 3 months"
+    },
+    {
+      title: "Generate meeting prep document",
+      category: "documents",
+      description: "Summarize key points, action items, and open questions"
+    }
+  ]
+};
+```
+
+### 2. Scheduled Triggers
+
+Time-based automation using cron expressions:
+
+```python
+# From: apps/api/app/models/workflow_models.py:61-103
+
+class TriggerConfig(BaseModel):
+    type: TriggerType.SCHEDULE
+    cron_expression: str  # "0 9 * * 1"  = Every Monday at 9am
+    timezone: str         # "America/New_York"
+    next_run: datetime    # Calculated automatically
+```
+
+**Common Schedules:**
+
+<CodeGroup>
+```bash Daily Morning Brief
+0 9 * * *
+# Every day at 9:00 AM
+```
+
+```bash Weekly Status Report
+0 17 * * 5
+# Every Friday at 5:00 PM
+```
+
+```bash Monthly Review
+0 10 1 * *
+# First day of month at 10:00 AM
+```
+
+```bash Hourly Check
+0 * * * *
+# Every hour on the hour
+```
+</CodeGroup>
+
+### 3. Integration Triggers
+
+Event-driven automation—the most powerful type:
+
+```python
+# From: apps/api/app/models/workflow_models.py:71-92
+
+class TriggerConfig(BaseModel):
+    type: TriggerType.INTEGRATION
+    trigger_name: str         # "gmail_new_email_received"
+    trigger_data: dict        # Provider-specific configuration
+    composio_trigger_ids: List[str]  # Registered webhook IDs
+```
+
+**Example Integration Triggers:**
+
+<Tabs>
+  <Tab title="Gmail">
+    - New email received
+    - Email labeled
+    - Email matching filter
+    - Specific sender detected
+  </Tab>
+  <Tab title="Calendar">
+    - Event starts (with lead time)
+    - Event created
+    - Event updated
+    - Event cancelled
+  </Tab>
+  <Tab title="GitHub">
+    - Pull request opened
+    - Issue created
+    - Commit pushed
+    - Release published
+  </Tab>
+  <Tab title="Slack">
+    - Message in channel
+    - Direct message received
+    - Mention detected
+    - Reaction added
+  </Tab>
+</Tabs>
+
+## Workflow Execution
+
+### Intelligent Execution Flow
+
+```python
+# From: apps/api/app/agents/prompts/workflow_prompts.py:287-356
+
+# When executing a workflow, GAIA:
+# 1. Receives trigger context (if event-driven)
+# 2. Loads workflow steps
+# 3. Executes each step with full intelligence
+# 4. Passes context between steps
+# 5. Handles errors and retries
+# 6. Logs execution for learning
+```
+
+### Execution Modes
+
+<Accordion title="Execution Approaches">
+  <AccordionItem title="Direct Tool Execution">
+    For simple categories (todos, reminders, search):
+    ```python
+    # Agent retrieves and calls tools directly
+    retrieve_tools(query="create todo")
+    create_todo(title="Follow up with client", due_date="2024-12-15")
+    ```
+  </AccordionItem>
+  
+  <AccordionItem title="Subagent Delegation">
+    For provider-specific operations (gmail, notion, calendar):
+    ```python
+    # From: apps/api/app/agents/prompts/workflow_prompts.py:311-330
+    
+    # Main agent hands off to specialized subagent
+    handoff(
+      subagent_id="gmail",
+      task="Search for emails from client@example.com in last 30 days"
+    )
+    
+    # Gmail subagent has deep expertise with Gmail tools
+    # Returns results to main agent for next step
+    ```
+  </AccordionItem>
+</Accordion>
+
+### Step Execution Example
+
+Here's how GAIA executes a workflow step intelligently:
+
+<Steps>
+  <Step title="Step Received">
+    ```json
+    {
+      "title": "Create follow-up calendar event",
+      "category": "googlecalendar",
+      "description": "Schedule 30min meeting for next Tuesday at 2pm"
+    }
+    ```
+  </Step>
+  
+  <Step title="Context Analysis">
+    Agent understands:
+    - "next Tuesday" needs date calculation
+    - User's timezone from config
+    - 30 minutes = duration
+    - "meeting" = event type
+  </Step>
+  
+  <Step title="Tool Selection">
+    ```python
+    # Agent decides to use calendar subagent
+    handoff(
+      subagent_id="googlecalendar",
+      task="Create 30min event on 2024-12-17 at 14:00"
+    )
+    ```
+  </Step>
+  
+  <Step title="Subagent Execution">
+    Calendar subagent:
+    - Checks for conflicts
+    - Finds available slot
+    - Creates event
+    - Returns confirmation
+  </Step>
+  
+  <Step title="Result Integration">
+    Main agent receives event_id and continues to next step with full context
+  </Step>
+</Steps>
+
+## Creating Workflows
+
+### Via Natural Language
+
+The easiest way—just describe what you want:
+
+```python
+# From: apps/api/app/agents/tools/workflow_tool.py:247-298
+
+@tool
+async def create_workflow(
+    user_request: str,  # "Email me a summary of my todos every morning"
+    mode: Literal["new", "from_conversation"] = "new"
+) -> dict:
+    """
+    GAIA's workflow assistant will:
+    1. Understand your intent
+    2. Ask clarifying questions if needed
+    3. Search for appropriate triggers
+    4. Generate optimized steps
+    5. Present draft for confirmation
+    """
+```
+
+**Example Conversation:**
+
+<CodeGroup>
+```text User Request
+"When I get an email from my boss, create a todo and notify me on Slack"
+```
+
+```json GAIA Response (Draft)
+{
+  "type": "finalized",
+  "title": "Boss Email → Todo & Slack",
+  "description": "Creates todo and sends Slack notification for boss emails",
+  "trigger_type": "integration",
+  "trigger_slug": "gmail_new_email_received",
+  "trigger_config": {
+    "sender_filter": "boss@company.com"
+  },
+  "steps": [
+    {
+      "title": "Create todo from email",
+      "category": "todos",
+      "description": "Extract action items from email and create todo"
+    },
+    {
+      "title": "Send Slack notification",
+      "category": "slack",
+      "description": "Notify in #personal channel with email subject"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+### From Conversation History
+
+Turn any successful interaction into a reusable workflow:
+
+```typescript
+// From: apps/web/src/features/workflows/types/workflowExecutionTypes.ts
+
+// After completing a task manually with GAIA:
+// "Save this as a workflow that runs every Monday"
+
+// GAIA extracts:
+interface ConversationContext {
+  suggested_title: string;
+  summary: string;
+  workflow_steps: string[];
+  integrations_used: string[];
+}
+
+// And creates a reusable automation
+```
+
+## Workflow Generation Principles
+
+<Warning>
+GAIA follows strict optimization rules to create efficient workflows.
+</Warning>
+
+### Ultra-Efficient Steps
+
+```python
+# From: apps/api/app/agents/prompts/workflow_prompts.py:139-180
+
+# CRITICAL RULES:
+# - MINIMIZE STEPS: Aim for 3-5 max
+# - COMBINE OPERATIONS: Use tools that handle multiple tasks
+# - ELIMINATE REDUNDANCY: Never duplicate actions
+# - NO COGNITIVE STEPS: No "analyze" or "review" steps
+# - ONLY EXTERNAL ACTIONS: Every step must use a tool
+```
+
+**Bad Example (Inefficient):**
+```json
+{
+  "steps": [
+    {"title": "Fetch email", "category": "gmail"},
+    {"title": "Read email content", "category": "general"},
+    {"title": "Analyze sentiment", "category": "general"},
+    {"title": "Extract action items", "category": "general"},
+    {"title": "Create todo for each item", "category": "todos"},
+    {"title": "Log the interaction", "category": "documents"}
+  ]
+}
+```
+
+**Good Example (Optimized):**
+```json
+{
+  "steps": [
+    {
+      "title": "Process email and extract actions",
+      "category": "gmail",
+      "description": "Get email content and identify action items"
+    },
+    {
+      "title": "Create todos in batch",
+      "category": "todos",
+      "description": "Create todo items for all extracted actions"
+    }
+  ]
+}
+```
+
+<Tip>
+The LLM executing the workflow handles all analysis, understanding, and decision-making. Steps should only describe external tool actions.
+</Tip>
+
+## Advanced Features
+
+### Trigger Context Awareness
+
+```python
+# From: apps/api/app/agents/prompts/workflow_prompts.py:358-440
+
+# Email-triggered workflows receive full context:
+EMAIL_TRIGGERED_WORKFLOW_PROMPT = """
+You are executing a workflow triggered by an email.
+
+EMAIL CONTEXT AVAILABLE:
+- From: {email_sender}
+- Subject: {email_subject}
+- Content: {email_content_preview}
+- Received: {trigger_timestamp}
+
+You DON'T need to fetch the email—you already have it!
+Focus on USING the email data, not retrieving it.
+"""
+```
+
+### Dynamic Tool Discovery
+
+```python
+# Agents can discover tools at runtime
+retrieve_tools(query="send slack message")
+# Returns: SLACK_SEND_MESSAGE, SLACK_SEND_DIRECT_MESSAGE, etc.
+
+# Then load specific tools
+retrieve_tools(exact_tool_names=["SLACK_SEND_MESSAGE"])
+```
+
+### Error Handling
+
+```python
+# From: apps/api/app/models/workflow_models.py:221-228
+
+class Workflow(BaseModel):
+    current_step_index: int
+    execution_logs: List[str]
+    error_message: Optional[str]
+    
+    # Workflows maintain state for recovery
+    # Failed steps can be retried
+    # User notified of failures
+```
+
+## Workflow Categories
+
+<CardGroup cols={3}>
+  <Card title="Email Management" icon="envelope">
+    - Auto-label important emails
+    - Create todos from requests
+    - Schedule meetings from proposals
+    - Archive newsletters
+  </Card>
+  
+  <Card title="Meeting Automation" icon="calendar">
+    - Prepare meeting briefs
+    - Schedule follow-ups
+    - Send summaries
+    - Track action items
+  </Card>
+  
+  <Card title="Project Tracking" icon="list-check">
+    - Sync GitHub issues to Notion
+    - Update status in Slack
+    - Generate weekly reports
+    - Track deadlines
+  </Card>
+  
+  <Card title="Content Publishing" icon="newspaper">
+    - Draft social posts
+    - Cross-post to platforms
+    - Schedule publications
+    - Track engagement
+  </Card>
+  
+  <Card title="Data Sync" icon="arrows-rotate">
+    - Sync CRM data
+    - Update spreadsheets
+    - Backup documents
+    - Consolidate reports
+  </Card>
+  
+  <Card title="Personal Productivity" icon="user">
+    - Morning briefings
+    - Evening reviews
+    - Weekly planning
+    - Habit tracking
+  </Card>
+</CardGroup>
+
+## Monitoring & Analytics
+
+### Execution History
+
+```typescript
+// From: apps/web/src/features/workflows/types/workflowExecutionTypes.ts
+
+interface WorkflowExecution {
+  execution_id: string;
+  workflow_id: string;
+  status: "running" | "success" | "failed";
+  started_at: string;
+  completed_at?: string;
+  duration_seconds?: number;
+  conversation_id?: string;  // Links to chat history
+  summary?: string;
+  error_message?: string;
+  trigger_type: string;
+}
+```
+
+### Performance Metrics
+
+```python
+# From: apps/api/app/models/workflow_models.py:230-234
+
+class Workflow(BaseModel):
+    total_executions: int
+    successful_executions: int
+    
+    # Calculate success rate
+    @property
+    def success_rate(self) -> float:
+        if self.total_executions == 0:
+            return 0.0
+        return self.successful_executions / self.total_executions
+```
+
+## Best Practices
+
+<Accordion title="Workflow Design Tips">
+  <AccordionItem title="Start Simple">
+    Begin with 2-3 step workflows before building complex automations.
+    
+    **Example:** "Email arrives → Create todo" before "Email arrives → Analyze sentiment → Extract entities → Update CRM → Schedule follow-up → Send summary"
+  </AccordionItem>
+  
+  <AccordionItem title="Use Descriptive Names">
+    ```python
+    # Good
+    title = "Client Proposal Processing"
+    description = "When client sends proposal, extract requirements and schedule review meeting"
+    
+    # Bad
+    title = "Email Workflow 1"
+    description = "Does stuff with emails"
+    ```
+  </AccordionItem>
+  
+  <AccordionItem title="Test Before Activating">
+    Always run a workflow manually first to verify behavior before enabling automatic triggers.
+  </AccordionItem>
+  
+  <AccordionItem title="Set Appropriate Triggers">
+    - **Manual**: Complex tasks requiring context
+    - **Scheduled**: Regular reporting/maintenance
+    - **Integration**: Real-time response to events
+  </AccordionItem>
+  
+  <AccordionItem title="Monitor Initially">
+    Check execution logs frequently when first enabling a workflow to catch edge cases.
+  </AccordionItem>
+</Accordion>
+
+## Technical Deep Dive
+
+### Workflow Service
+
+```python
+# From: apps/api/app/agents/tools/workflow_tool.py
+
+class WorkflowService:
+    @staticmethod
+    async def create_workflow(request, user_id, user_timezone):
+        # 1. Validate trigger config
+        # 2. Generate steps (if not provided)
+        # 3. Calculate next_run for scheduled triggers
+        # 4. Register integration webhooks
+        # 5. Store in PostgreSQL
+        # 6. Index for search
+    
+    @staticmethod
+    async def execute_workflow(workflow_id, context, user_id):
+        # 1. Load workflow
+        # 2. Build execution prompt with steps
+        # 3. Create conversation context
+        # 4. Execute via agent (streaming or silent)
+        # 5. Track execution history
+        # 6. Update statistics
+```
+
+### Subagent Router
+
+```python
+# From: apps/api/app/agents/prompts/workflow_prompts.py:330-343
+
+# Main agent routes steps to specialized subagents:
+
+if step.category in ["gmail", "notion", "twitter", "linkedin", "calendar"]:
+    # Use handoff for provider-specific tools
+    handoff(
+        subagent_id=step.category,
+        task=f"{step.title}: {step.description}"
+    )
+else:
+    # Direct execution for general tools
+    retrieve_tools(query=step.description)
+    # Call tools directly
+```
+
+## Related Concepts
+
+- [Proactive AI](/concepts/proactive-ai) - Autonomous execution
+- [Integrations](/concepts/integrations) - Connected services
+- [Agents](/concepts/agents) - Specialized executors
+- [Memory System](/concepts/memory-system) - Learning from executions
+
+---
+
+**Next Steps:**
+- [Create your first workflow →](#)
+- [Explore workflow templates →](#)
+- [Connect more integrations →](/concepts/integrations)

@@ -1,0 +1,279 @@
+---
+title: 'Rate Limits'
+description: 'Understand API rate limiting and subscription tiers'
+---
+
+# Rate Limits
+
+The GAIA API implements tiered rate limiting based on subscription plans to ensure fair usage and service reliability.
+
+## Rate Limit Tiers
+
+Rate limits vary by subscription plan:
+
+| Plan | Chat Messages | Todo Operations | Workflow Operations | Calendar Management | Mail Actions | Memory Operations | Goal Tracking |
+|------|--------------|----------------|---------------------|--------------------|--------------|--------------------|---------------|
+| **Free** | 50/hour | 100/hour | 10/hour | 50/hour | 30/hour | 50/hour | 20/hour |
+| **Pro** | 500/hour | 1000/hour | 100/hour | 500/hour | 300/hour | 500/hour | 200/hour |
+| **Team** | 2000/hour | 5000/hour | 500/hour | 2000/hour | 1000/hour | 2000/hour | 1000/hour |
+
+<Note>
+  Rate limits are applied per user, not per API key. Each authenticated user has their own rate limit quota.
+</Note>
+
+## Rate Limit Headers
+
+While GAIA API doesn't currently expose rate limit information in response headers, rate limit metadata is included in tool responses:
+
+```json
+{
+  "data": {...},
+  "_rate_limit_info": {
+    "feature": "chat_messages",
+    "plan": "free",
+    "usage": {
+      "hour": {
+        "used": 45,
+        "limit": 50,
+        "reset_time": "2026-02-19T11:00:00Z"
+      }
+    }
+  }
+}
+```
+
+## Rate Limit Windows
+
+Rate limits are tracked across multiple time windows:
+
+- **Minute** - Short-burst protection
+- **Hour** - Primary rate limiting window
+- **Day** - Daily quota enforcement
+
+Limits are enforced using atomic Redis operations to ensure accuracy even under high concurrency.
+
+## Feature Keys
+
+Different API operations are tracked under specific feature keys:
+
+### Chat Operations
+- `chat_messages` - Chat stream endpoints
+
+### Todo Operations
+- `todo_operations` - Create, update, delete todos and projects
+
+### Workflow Operations
+- `workflow_operations` - Create, execute, update workflows
+
+### Calendar Operations
+- `calendar_management` - Create, update, delete calendar events
+
+### Email Operations
+- `mail_actions` - Send, compose, manage emails
+
+### Memory Operations
+- `memory` - Create, delete memories
+
+### Goal Operations
+- `goal_tracking` - Create, update goals and roadmaps
+
+### Integration Operations
+- `integration_connection` - Connect integrations
+
+### Tool-Specific Operations
+- `code_execution` - Execute code in sandboxed environment
+- `document_generation` - Generate documents
+- `file_analysis` - Analyze uploaded files
+- `flowchart_creation` - Create flowcharts
+- `generate_image` - Generate images with AI
+- `notification_operations` - Send notifications
+- `reminder_operations` - Create reminders
+
+## Handling Rate Limits
+
+### 429 Too Many Requests
+
+When you exceed rate limits, the API returns a `429` status code:
+
+```json
+{
+  "detail": {
+    "message": "Rate limit exceeded for chat_messages",
+    "feature": "chat_messages",
+    "reset_time": "2026-02-19T11:00:00Z",
+    "plan_required": "pro"
+  }
+}
+```
+
+<ResponseField name="detail" type="object">
+  Error details
+  <Expandable title="properties">
+    <ResponseField name="message" type="string">
+      Human-readable error message
+    </ResponseField>
+    <ResponseField name="feature" type="string">
+      The feature key that exceeded limits
+    </ResponseField>
+    <ResponseField name="reset_time" type="string">
+      ISO 8601 timestamp when the limit resets
+    </ResponseField>
+    <ResponseField name="plan_required" type="string">
+      Suggested plan to upgrade to (optional)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Best Practices
+
+<AccordionGroup>
+  <Accordion title="Implement exponential backoff">
+    When receiving a `429` error, wait before retrying:
+    
+    ```python
+    import time
+    
+    def make_request_with_backoff(url, max_retries=3):
+        for i in range(max_retries):
+            response = requests.get(url)
+            if response.status_code != 429:
+                return response
+            
+            # Exponential backoff: 2^i seconds
+            wait_time = 2 ** i
+            time.sleep(wait_time)
+        
+        raise Exception("Rate limit exceeded after retries")
+    ```
+  </Accordion>
+
+  <Accordion title="Batch operations where possible">
+    Use bulk endpoints to reduce API calls:
+    
+    ```python
+    # Good: Bulk update
+    requests.put("/api/v1/todos/bulk", json={
+        "todo_ids": ["id1", "id2", "id3"],
+        "updates": {"completed": true}
+    })
+    
+    # Avoid: Multiple individual requests
+    for todo_id in todo_ids:
+        requests.put(f"/api/v1/todos/{todo_id}", ...)
+    ```
+  </Accordion>
+
+  <Accordion title="Cache responses when appropriate">
+    Cache frequently accessed data to reduce API calls:
+    
+    ```python
+    from functools import lru_cache
+    from datetime import datetime, timedelta
+    
+    cache_expiry = {}
+    
+    @lru_cache(maxsize=100)
+    def get_projects():
+        if 'projects' in cache_expiry and cache_expiry['projects'] > datetime.now():
+            return cached_projects
+        
+        projects = requests.get("/api/v1/projects").json()
+        cache_expiry['projects'] = datetime.now() + timedelta(minutes=5)
+        return projects
+    ```
+  </Accordion>
+
+  <Accordion title="Monitor your usage">
+    Track rate limit information in responses to understand your usage patterns:
+    
+    ```python
+    response = make_request("/api/v1/todos")
+    rate_limit_info = response.json().get("_rate_limit_info")
+    
+    if rate_limit_info:
+        usage = rate_limit_info["usage"]["hour"]
+        used_percentage = (usage["used"] / usage["limit"]) * 100
+        
+        if used_percentage > 80:
+            logger.warning(f"Approaching rate limit: {used_percentage}% used")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Subscription Caching
+
+To improve performance and reduce database load, subscription information is cached in Redis for 5 minutes. This means:
+
+- Subscription upgrades take effect within 5 minutes
+- Rate limits reflect your current plan after cache expiry
+- Cache is invalidated on logout/re-authentication
+
+## Rate Limit Exemptions
+
+### System Operations
+
+Certain operations bypass rate limiting:
+- Background workflow executions
+- Scheduled reminder processing
+- Email importance analysis
+- System-generated notifications
+
+These operations are marked with `initiator: "backend"` in the execution context.
+
+### Tool Rate Limiting
+
+LangChain tools used by the AI agent have separate rate limiting:
+
+```python
+@tool
+@with_rate_limiting("search")  # Auto-derived feature key
+async def search_web(query: str, config: RunnableConfig) -> dict:
+    """Search the web for information."""
+    # Implementation
+```
+
+Tools respect the same tiered limits as API endpoints.
+
+## Upgrading Your Plan
+
+To increase your rate limits, upgrade your subscription:
+
+1. Navigate to **Settings → Billing** in the GAIA web app
+2. Choose **Pro** or **Team** plan
+3. Complete payment through Dodo Payments
+4. Limits update within 5 minutes
+
+<Card title="Pricing" icon="credit-card" href="https://heygaia.io/pricing">
+  View detailed pricing and plan comparisons
+</Card>
+
+## Custom Enterprise Limits
+
+For enterprise customers with custom requirements, contact our sales team:
+
+- **Email:** enterprise@heygaia.io
+- **Features:** Custom rate limits, dedicated infrastructure, SLA guarantees
+
+## Rate Limit Implementation
+
+GAIA uses Redis-backed rate limiting with the following characteristics:
+
+- **Atomic operations** - Thread-safe increment operations
+- **Sliding windows** - Precise rate limit tracking
+- **Multi-tier enforcement** - Simultaneous minute/hour/day limits
+- **Plan-based quotas** - Dynamic limits based on subscription
+
+<Note>
+  Rate limits are enforced before request processing to prevent wasted computation on operations that would be rejected.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Webhooks" icon="webhook" href="/api/webhooks">
+    Set up real-time event notifications
+  </Card>
+  <Card title="Start Building" icon="code" href="/api/chat">
+    Make your first API request
+  </Card>
+</CardGroup>

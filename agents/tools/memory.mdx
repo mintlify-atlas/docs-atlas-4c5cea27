@@ -1,0 +1,527 @@
+---
+title: Memory Tool
+description: Mem0-powered memory management for persistent context and learning
+---
+
+# Memory Tool
+
+The Memory tool provides AI-powered memory storage and retrieval using **Mem0**, enabling agents to remember user preferences, context, and past interactions.
+
+## Overview
+
+Memory capabilities:
+
+- Store user memories (preferences, contacts, IDs, facts)
+- Store agent skills (procedural knowledge, successful patterns)
+- Semantic search across memories
+- Automatic memory extraction from conversations
+- Namespace isolation (user vs. agent memories)
+- Async memory storage for performance
+
+```python
+# Location: apps/api/app/agents/tools/memory_tools.py
+```
+
+## Memory Types
+
+### User Memories
+
+Stored per user, containing personal information:
+
+- **Preferences**: "User prefers email summaries in the morning"
+- **Contacts**: "John Smith is user's manager at Acme Corp"
+- **IDs**: "User's Linear team ID is TEAM-123"
+- **Context**: "User is working on Q4 budget project"
+
+### Agent Skills
+
+Stored per agent, containing procedural knowledge:
+
+- **Patterns**: "Gmail searches work better with sender:email syntax"
+- **Workflows**: "For meeting scheduling, always check calendar first"
+- **Solutions**: "Use bulk operations for >5 todo updates"
+
+## Tools
+
+### Add Memory
+
+```python
+@tool
+@with_doc(ADD_MEMORY)
+async def add_memory(
+    config: RunnableConfig,
+    content: Annotated[str, "Memory content to store"],
+    metadata: Annotated[Optional[Dict], "Additional metadata"] = None,
+) -> str:
+    """
+    Store a memory for the user.
+    
+    Args:
+        config: Runtime configuration with user_id
+        content: Memory content (natural language)
+        metadata: Optional metadata (tags, category, etc.)
+    
+    Returns:
+        Confirmation message with event ID
+    """
+    metadata = metadata or {}
+    user_id = config.get("metadata", {}).get("user_id")
+    
+    if not user_id:
+        return "Error: User ID is required but not found in configuration"
+    
+    memory = await memory_service.store_memory(
+        message=content,
+        user_id=user_id,
+        metadata=metadata,
+        async_mode=True,  # Background processing
+    )
+    
+    if not memory:
+        return "Failed to store memory"
+    
+    # For async mode, return event_id and status
+    mem_metadata = memory.metadata or {}
+    event_id = mem_metadata.get("event_id")
+    status = mem_metadata.get("status", "unknown")
+    
+    if event_id:
+        return f"Memory queued for processing (Event ID: {event_id}, Status: {status})"
+    
+    # Fallback for sync mode
+    return f"Memory stored successfully with ID: {memory.id}"
+```
+
+**Usage:**
+```python
+# Store user preference
+await add_memory(
+    config,
+    content="User prefers meetings scheduled in the afternoon",
+    metadata={"category": "preferences", "type": "scheduling"}
+)
+
+# Store contact information
+await add_memory(
+    config,
+    content="Sarah Johnson is the VP of Engineering at TechCorp, email: sarah@techcorp.com"
+)
+```
+
+### Search Memory
+
+```python
+@tool
+@with_doc(SEARCH_MEMORY)
+async def search_memory(
+    config: RunnableConfig,
+    query: Annotated[str, "Query string to search for"],
+    limit: Annotated[int, "Maximum number of results to return"] = 5,
+) -> str:
+    """
+    Search memories using semantic similarity.
+    
+    Args:
+        config: Runtime configuration with user_id
+        query: Natural language search query
+        limit: Max results (default: 5)
+    
+    Returns:
+        Formatted string with relevant memories
+    """
+    user_id = config.get("metadata", {}).get("user_id")
+    
+    if not user_id:
+        return "Error: User ID is required but not found in configuration"
+    
+    results = await memory_service.search_memories(
+        query=query,
+        user_id=user_id,
+        limit=limit
+    )
+    
+    if not results.memories:
+        return "No matching memories found"
+    
+    # Format results
+    formatted_results = "Found the following memories:\n\n"
+    for i, memory in enumerate(results.memories, 1):
+        score = f" (score: {memory.relevance_score:.2f})" if memory.relevance_score else ""
+        formatted_results += f"{i}. {memory.content}{score}\n\n"
+    
+    return formatted_results
+```
+
+**Usage:**
+```python
+# Search for preferences
+memories = await search_memory(
+    config,
+    query="scheduling preferences",
+    limit=3
+)
+# Returns: "User prefers afternoon meetings", "No meetings before 10am", etc.
+
+# Search for contact info
+memories = await search_memory(
+    config,
+    query="who is the engineering lead"
+)
+# Returns: "Sarah Johnson is the VP of Engineering..."
+```
+
+## Memory Service
+
+### Store Memory
+
+```python
+# Location: apps/api/app/services/memory_service.py
+class MemoryService:
+    async def store_memory(
+        self,
+        message: str,
+        user_id: str,
+        metadata: Optional[Dict] = None,
+        async_mode: bool = True,
+    ) -> Memory:
+        """
+        Store a memory in Mem0.
+        
+        Args:
+            message: Memory content
+            user_id: User or agent ID (format: "user:123" or "agent:gmail")
+            metadata: Additional metadata
+            async_mode: Use background processing for better performance
+        
+        Returns:
+            Memory object with ID and metadata
+        """
+        if async_mode:
+            # Queue for background processing
+            event_id = str(uuid.uuid4())
+            await rabbitmq.publish(
+                exchange="memory",
+                routing_key="store",
+                message={
+                    "message": message,
+                    "user_id": user_id,
+                    "metadata": metadata,
+                    "event_id": event_id,
+                }
+            )
+            return Memory(
+                id=event_id,
+                content=message,
+                metadata={"event_id": event_id, "status": "queued"},
+            )
+        else:
+            # Synchronous storage
+            result = await mem0_client.add(
+                messages=[{"role": "user", "content": message}],
+                user_id=user_id,
+                metadata=metadata,
+            )
+            return Memory(
+                id=result["id"],
+                content=message,
+                metadata=metadata,
+            )
+```
+
+### Search Memories
+
+```python
+async def search_memories(
+    self,
+    query: str,
+    user_id: str,
+    limit: int = 5,
+) -> MemorySearchResult:
+    """
+    Search memories using semantic similarity.
+    
+    Args:
+        query: Natural language query
+        user_id: User or agent ID
+        limit: Max results
+    
+    Returns:
+        MemorySearchResult with ranked memories
+    """
+    results = await mem0_client.search(
+        query=query,
+        user_id=user_id,
+        limit=limit,
+    )
+    
+    memories = [
+        Memory(
+            id=r["id"],
+            content=r["memory"],
+            relevance_score=r["score"],
+            metadata=r.get("metadata"),
+        )
+        for r in results
+    ]
+    
+    return MemorySearchResult(memories=memories)
+```
+
+## Memory Learning Node
+
+Subagents automatically extract and store procedural knowledge:
+
+```python
+# Location: apps/api/app/agents/core/nodes/memory_learning_node.py
+async def memory_learning_node(state: State, config: RunnableConfig) -> dict:
+    """
+    Extract and store procedural knowledge from agent conversations.
+    
+    This node runs as an end_graph_hook for subagents, allowing them
+    to learn successful patterns and approaches.
+    """
+    agent_name = config.get("configurable", {}).get("agent_name")
+    
+    if not agent_name or "subagent" not in agent_name:
+        # Only run for subagents
+        return {}
+    
+    # Extract learning from conversation
+    messages = state.messages
+    
+    # Identify successful tool executions and patterns
+    learnings = []
+    for msg in messages:
+        if isinstance(msg, ToolMessage) and msg.status == "success":
+            # Extract what worked
+            learning = f"Tool {msg.name} succeeded with args: {msg.args}"
+            learnings.append(learning)
+    
+    # Store as agent skill
+    if learnings:
+        skill_memory = "\n".join(learnings)
+        await memory_service.store_memory(
+            message=skill_memory,
+            user_id=f"agent:{agent_name}",
+            metadata={"type": "skill", "agent": agent_name},
+            async_mode=True,
+        )
+    
+    return {}
+```
+
+## Namespace Isolation
+
+Memories are isolated by namespace:
+
+```python
+# User memories
+user_id = "user:abc123"
+await store_memory("User prefers dark mode", user_id)
+
+# Agent skills
+agent_id = "agent:gmail_subagent"
+await store_memory("Search with sender: syntax works best", agent_id)
+
+# Namespaces don't interfere
+await search_memory("search patterns", user_id)  # Won't find agent skills
+await search_memory("search patterns", agent_id)  # Finds agent skills only
+```
+
+## Automatic Memory Storage
+
+User messages are automatically stored:
+
+```python
+# Location: apps/api/app/agents/core/agent.py:95
+if user_id and request.message:
+    # Fire and forget
+    task = asyncio.create_task(
+        store_user_message_memory(
+            user_id,
+            request.message,
+            conversation_id
+        )
+    )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+```
+
+## Memory in System Prompts
+
+Retrieved memories are injected into system prompts:
+
+```python
+# Location: apps/api/app/agents/core/nodes/manage_system_prompts_node.py
+def manage_system_prompts_node(state: State, config: RunnableConfig) -> dict:
+    """
+    Inject relevant memories into system prompt.
+    """
+    memories = state.memories
+    
+    if memories:
+        memory_context = "\n".join([
+            f"- {memory}" for memory in memories
+        ])
+        
+        system_prompt = f"""
+        You are an AI assistant with access to user memories.
+        
+        Relevant memories:
+        {memory_context}
+        
+        Use these memories to personalize your responses.
+        """
+    else:
+        system_prompt = "You are an AI assistant."
+    
+    return {"messages": [SystemMessage(content=system_prompt)]}
+```
+
+## Performance Optimization
+
+### Async Mode
+
+Memory storage uses async mode by default:
+
+```python
+# Fast: Background processing
+await add_memory(config, "User prefers email summaries", async_mode=True)
+# Returns immediately with event ID
+
+# Slow: Synchronous (blocks until stored)
+await add_memory(config, "User prefers email summaries", async_mode=False)
+# Waits for Mem0 API call to complete
+```
+
+### Background Task Management
+
+```python
+# Set to hold task references (prevent garbage collection)
+_background_tasks: set[asyncio.Task] = set()
+
+# Create background task
+task = asyncio.create_task(store_user_message_memory(...))
+_background_tasks.add(task)
+
+# Remove when done
+task.add_done_callback(_background_tasks.discard)
+```
+
+## Usage Patterns
+
+### Progressive Context Building
+
+```python
+# First conversation
+User: "I work at Acme Corp"
+Agent: *stores memory: "User works at Acme Corp"*
+
+# Later conversation
+User: "Email my manager"
+Agent: *searches memories: "who is the manager"*
+Agent: *finds: "John Smith is manager at Acme Corp"*
+Agent: "I'll email John Smith"
+```
+
+### Preference Learning
+
+```python
+# User behavior pattern
+User: "Move this meeting to afternoon"
+User: "Can we do 2pm instead of 9am?"
+User: "Schedule for after lunch"
+
+# Agent learns and stores
+await add_memory(
+    config,
+    "User consistently prefers afternoon meetings over morning",
+    metadata={"type": "preference", "category": "scheduling"}
+)
+
+# Future conversations
+User: "Schedule a team meeting"
+Agent: *retrieves memory about afternoon preference*
+Agent: "I'll schedule it for 2pm based on your preference"
+```
+
+## Best Practices
+
+### 1. Store Actionable Information
+
+```python
+# Good: Specific, actionable
+await add_memory(config, "User's GitHub username is @johndoe")
+
+# Avoid: Vague, unusable
+await add_memory(config, "User mentioned GitHub")
+```
+
+### 2. Use Metadata for Organization
+
+```python
+await add_memory(
+    config,
+    "User prefers Slack over email for urgent notifications",
+    metadata={
+        "category": "preferences",
+        "subcategory": "communication",
+        "priority": "high"
+    }
+)
+```
+
+### 3. Search Before Storing
+
+```python
+# Check if similar memory exists
+existing = await search_memory(config, "user's manager")
+
+if not existing.memories:
+    # Store new memory
+    await add_memory(config, "John is user's manager")
+else:
+    # Update existing or skip
+    pass
+```
+
+<Note>
+Memories are stored asynchronously by default for better performance. The agent doesn't wait for Mem0 API calls to complete.
+</Note>
+
+## Integration with Other Systems
+
+### With Todo System
+
+```python
+# Store project context
+await add_memory(
+    config,
+    "User is working on Q4 budget project, due end of month"
+)
+
+# Later, when creating todos
+memories = await search_memory(config, "current projects")
+# Suggests relevant project when creating tasks
+```
+
+### With Calendar
+
+```python
+# Store scheduling preferences
+await add_memory(
+    config,
+    "User has standing meeting with Sarah every Monday at 10am"
+)
+
+# Later, when scheduling
+memories = await search_memory(config, "recurring meetings")
+# Avoids conflicts with known recurring events
+```
+
+## Next Steps
+
+- [Integrations Tool](/agents/tools/integrations) - OAuth management
+- [Workflow Tool](/agents/tools/workflow) - Automation
+- [LLM Memory Integration](/agents/llm/memory-integration) - LLM context
+- [State Management](/agents/state-management) - Agent state

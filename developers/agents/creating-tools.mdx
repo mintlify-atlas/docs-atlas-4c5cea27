@@ -1,0 +1,365 @@
+---
+title: Creating Agent Tools
+description: Build custom LangChain tools that agents can use to perform actions and retrieve information
+---
+
+Tools give agents the ability to interact with external systems, databases, and APIs. This guide covers creating, registering, and documenting custom tools.
+
+## Tool Anatomy
+
+A tool consists of:
+
+1. **Function definition** with type hints
+2. **`@tool` decorator** from LangChain
+3. **Documentation** via `@with_doc` decorator
+4. **Rate limiting** via `@with_rate_limiting` (optional)
+5. **Return value** with structured data
+
+## Basic Tool Example
+
+Here's a simple weather tool from `app/agents/tools/weather_tool.py`:
+
+```python
+from typing import Annotated
+from langchain_core.runnables.config import RunnableConfig
+from langchain_core.tools import tool
+from langgraph.config import get_stream_writer
+from app.decorators import with_doc, with_rate_limiting
+from app.utils.weather_utils import user_weather
+from app.templates.docstrings.weather_tool_docs import GET_WEATHER
+
+@tool
+@with_rate_limiting("weather_checks")
+@with_doc(GET_WEATHER)
+async def get_weather(
+    config: RunnableConfig,
+    location: Annotated[str, "Name of the location (e.g. Surat,IN)"],
+) -> dict | str:
+    """Fetch weather information for a location."""
+    writer = get_stream_writer()
+    writer({"progress": f"Fetching weather for {location}..."})
+
+    # Get weather data
+    weather_data = await user_weather(location)
+
+    # Stream data to frontend
+    writer({"weather_data": weather_data, "location": location})
+
+    # Return instructions for LLM
+    return (
+        f"Weather data for {location}: {weather_data}\n\n"
+        "The raw weather card is visible to the user. "
+        "Focus on providing helpful insights based on conditions."
+    )
+```
+
+## Advanced Tool Pattern
+
+A more complex tool from `app/agents/tools/todo_tool.py`:
+
+```python
+import uuid
+from datetime import datetime
+from typing import Annotated, Any, Dict, List, Optional
+
+from app.config.loggers import chat_logger as logger
+from app.decorators import with_doc, with_rate_limiting
+from app.models.todo_models import Priority, TodoModel
+from app.services.todos.todo_service import (
+    create_todo as create_todo_service
+)
+from app.templates.docstrings.todo_tool_docs import CREATE_TODO
+from app.utils.chat_utils import get_user_id_from_config
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
+
+@tool
+@with_rate_limiting("todo_operations")
+@with_doc(CREATE_TODO)
+async def create_todo(
+    config: RunnableConfig,
+    title: Annotated[str, "Title of the todo item (required)"],
+    description: Annotated[
+        Optional[str], "Detailed description of the todo"
+    ] = None,
+    labels: Annotated[
+        Optional[List[str]], "List of labels/tags for categorization"
+    ] = None,
+    due_date: Annotated[
+        Optional[datetime], "When the task should be completed"
+    ] = None,
+    priority: Annotated[
+        Optional[str], "Priority level: high, medium, low, or none"
+    ] = None,
+    project_id: Annotated[
+        Optional[str], "Project ID to assign the todo to"
+    ] = None,
+) -> Dict[str, Any]:
+    """Create a new todo item."""
+    try:
+        logger.info(f"Todo Tool: Creating todo with title '{title}'")
+        user_id = get_user_id_from_config(config)
+
+        if not user_id:
+            return {"error": "User authentication required", "todo": None}
+
+        # Convert priority string to enum
+        priority_enum = Priority(priority) if priority else Priority.NONE
+
+        # Create todo via service
+        result = await create_todo_service(
+            user_id=user_id,
+            title=title,
+            description=description,
+            labels=labels,
+            due_date=due_date,
+            due_date_timezone=None,
+            priority=priority_enum,
+            project_id=project_id,
+        )
+
+        if result.get("error"):
+            return {"error": result["error"], "todo": None}
+
+        todo = result.get("todo")
+        return {
+            "success": True,
+            "todo": todo.model_dump() if todo else None,
+            "message": f"Todo '{title}' created successfully"
+        }
+
+    except Exception as e:
+        logger.error(f"Error creating todo: {e}")
+        return {"error": str(e), "todo": None}
+```
+
+## Tool Decorators
+
+### @tool - LangChain Tool Decorator
+
+Marks a function as a LangChain tool:
+
+```python
+from langchain_core.tools import tool
+
+@tool
+async def my_tool(config: RunnableConfig, param: str) -> dict:
+    """Tool description for the LLM."""
+    return {"result": param}
+```
+
+### @with_doc - Documentation Decorator
+
+Adds detailed documentation from templates:
+
+```python
+from app.decorators import with_doc
+from app.templates.docstrings.my_tool_docs import MY_TOOL_DOC
+
+@tool
+@with_doc(MY_TOOL_DOC)
+async def my_tool(config: RunnableConfig) -> dict:
+    pass
+```
+
+Create documentation in `app/templates/docstrings/`:
+
+```python
+# my_tool_docs.py
+MY_TOOL_DOC = """
+Performs a specific action with detailed behavior.
+
+Examples:
+- Example 1: Usage pattern
+- Example 2: Another pattern
+
+Notes:
+- Important consideration 1
+- Important consideration 2
+"""
+```
+
+### @with_rate_limiting - Rate Limit Decorator
+
+Prevents abuse with rate limiting:
+
+```python
+from app.decorators import with_rate_limiting
+
+@tool
+@with_rate_limiting("my_operation_category")
+async def my_tool(config: RunnableConfig) -> dict:
+    pass
+```
+
+## Streaming Progress
+
+Use `get_stream_writer()` to send real-time updates:
+
+```python
+from langgraph.config import get_stream_writer
+
+@tool
+async def long_running_tool(
+    config: RunnableConfig,
+    task: str,
+) -> dict:
+    writer = get_stream_writer()
+
+    # Send progress updates
+    writer({"progress": "Starting task..."})
+    await perform_step_1()
+
+    writer({"progress": "50% complete..."})
+    await perform_step_2()
+
+    writer({"progress": "Finalizing..."})
+    result = await perform_step_3()
+
+    # Send structured data to frontend
+    writer({"task_result": result, "task_name": task})
+
+    return {"success": True, "data": result}
+```
+
+## Tool Registration
+
+Register tools in the tool registry:
+
+### Static Registration
+
+In `app/agents/tools/core/registry.py`:
+
+```python
+from app.agents.tools import (
+    weather_tool,
+    todo_tool,
+    my_custom_tool,  # Add your tool
+)
+
+class ToolRegistry:
+    def __init__(self):
+        self._tools = {
+            "get_weather": weather_tool.get_weather,
+            "create_todo": todo_tool.create_todo,
+            "my_tool": my_custom_tool.my_function,
+        }
+```
+
+### Dynamic Registration
+
+Register tools at runtime:
+
+```python
+from app.agents.tools.core.registry import get_tool_registry
+
+tool_registry = await get_tool_registry()
+tool_registry.register_tool("my_dynamic_tool", my_tool_function)
+```
+
+## Integration Tools
+
+Tools requiring OAuth integration:
+
+```python
+from app.decorators import require_integration
+
+@tool
+@require_integration("google")
+@with_rate_limiting("google_operations")
+async def google_tool(
+    config: RunnableConfig,
+    query: str,
+) -> dict:
+    """Tool that requires Google OAuth."""
+    # Access tokens available in config
+    access_token = config["configurable"].get("access_token")
+    refresh_token = config["configurable"].get("refresh_token")
+
+    # Use tokens for API calls
+    result = await call_google_api(access_token, query)
+    return result
+```
+
+## Error Handling
+
+Always handle errors gracefully:
+
+```python
+@tool
+async def safe_tool(
+    config: RunnableConfig,
+    param: str,
+) -> dict:
+    try:
+        result = await risky_operation(param)
+        return {"success": True, "data": result}
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        return {"error": f"Invalid input: {str(e)}"}
+    except Exception as e:
+        logger.error(f"Unexpected error in safe_tool: {e}")
+        return {"error": "An unexpected error occurred"}
+```
+
+## Tool Testing
+
+Test tools in isolation:
+
+```python
+import pytest
+from langchain_core.runnables.config import RunnableConfig
+
+@pytest.mark.asyncio
+async def test_my_tool():
+    config = RunnableConfig(
+        configurable={"user_id": "test-user-123"}
+    )
+
+    result = await my_tool(config, param="test_value")
+
+    assert result["success"] is True
+    assert "data" in result
+```
+
+<Warning>
+**Tool Development Guidelines**:
+- Always include `config: RunnableConfig` as first parameter
+- Use `Annotated` for parameter descriptions
+- Return structured dictionaries, not raw strings
+- Log errors with context for debugging
+- Stream progress for long-running operations
+- Handle authentication errors gracefully
+- Use type hints for all parameters and return values
+</Warning>
+
+## Best Practices
+
+<Steps>
+  <Step title="Type Safety">
+    Use strict type hints for all parameters and return values
+  </Step>
+  <Step title="Documentation">
+    Write clear docstrings and use `@with_doc` for detailed examples
+  </Step>
+  <Step title="Error Handling">
+    Return error dictionaries instead of raising exceptions
+  </Step>
+  <Step title="Streaming">
+    Use `get_stream_writer()` for progress updates on long operations
+  </Step>
+  <Step title="Testing">
+    Write unit tests for each tool with mocked dependencies
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Tools" icon="flask" href="/developers/agents/testing-agents">
+    Learn comprehensive testing strategies for tools
+  </Card>
+  <Card title="Creating Prompts" icon="message" href="/developers/agents/creating-prompts">
+    Write effective prompts that use your tools
+  </Card>
+</CardGroup>

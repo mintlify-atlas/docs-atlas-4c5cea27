@@ -1,0 +1,484 @@
+---
+title: "Web App Architecture"
+description: "Complete guide to GAIA's Next.js 16 web application with App Router, React 19, and modern frontend stack"
+---
+
+## Overview
+
+GAIA's web application is built with Next.js 16, leveraging the latest App Router architecture, React 19, and a modern TypeScript stack. The app provides a responsive, performant interface for GAIA's personal AI assistant features.
+
+## Tech Stack
+
+<CardGroup cols={2}>
+  <Card title="Next.js 16" icon="react">
+    App Router with React Server Components
+  </Card>
+  <Card title="React 19" icon="react">
+    Latest React features and optimizations
+  </Card>
+  <Card title="TypeScript" icon="code">
+    Strict type checking with latest TS features
+  </Card>
+  <Card title="Zustand" icon="database">
+    Lightweight state management
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+```bash
+apps/web/
+├── src/
+│   ├── app/              # Next.js App Router pages
+│   │   ├── (landing)/    # Landing pages route group
+│   │   ├── (main)/       # Main app route group
+│   │   ├── layout.tsx    # Root layout
+│   │   └── globals.css   # Global styles
+│   ├── features/         # Feature modules
+│   │   ├── chat/         # Chat feature
+│   │   ├── todo/         # Todo feature
+│   │   ├── calendar/     # Calendar feature
+│   │   ├── workflows/    # Workflows feature
+│   │   └── integrations/ # Integrations feature
+│   ├── components/       # Reusable components
+│   ├── stores/           # Zustand stores
+│   ├── lib/              # Utility libraries
+│   ├── hooks/            # Custom React hooks
+│   ├── types/            # TypeScript type definitions
+│   └── utils/            # Helper functions
+├── public/               # Static assets
+├── next.config.mjs       # Next.js configuration
+├── tailwind.config.ts    # TailwindCSS configuration
+├── biome.json           # Biome linter config
+└── package.json
+```
+
+## Next.js Configuration
+
+The web app uses several key Next.js features:
+
+### App Router Structure
+
+<Tabs>
+  <Tab title="Route Groups">
+    ```typescript
+    // apps/web/src/app/(main)/layout.tsx
+    export default function MainLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      return (
+        <div className="main-layout">
+          <Sidebar />
+          <main>{children}</main>
+        </div>
+      );
+    }
+    ```
+    
+    Route groups organize pages without affecting the URL structure:
+    - `(landing)/` - Marketing pages
+    - `(main)/` - Authenticated app pages
+  </Tab>
+  
+  <Tab title="Standalone Output">
+    ```javascript
+    // next.config.mjs
+    const nextConfig = {
+      output: 'standalone',
+      reactStrictMode: true,
+      compiler: {
+        removeConsole: process.env.NODE_ENV === 'production' 
+          ? { exclude: ['error'] } 
+          : false,
+      },
+    };
+    ```
+    
+    Standalone output creates a minimal production server for the Electron desktop app.
+  </Tab>
+  
+  <Tab title="Turbopack">
+    ```javascript
+    // next.config.mjs
+    turbopack: {
+      root: path.join(__dirname, '../..'),
+      resolveAlias: {
+        '@icons': '@theexperiencecompany/gaia-icons/solid-rounded',
+      },
+    },
+    ```
+    
+    Uses Turbopack for faster development builds.
+  </Tab>
+</Tabs>
+
+## Key Features
+
+### Server Components by Default
+
+Next.js 16 App Router makes all components Server Components by default. Use `'use client'` directive for client components:
+
+```typescript
+// Server Component (default)
+export default async function Page() {
+  const data = await fetchData();
+  return <div>{data}</div>;
+}
+
+// Client Component
+'use client';
+
+import { useState } from 'react';
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}
+```
+
+### Parallel Routes
+
+Load multiple pages in the same layout simultaneously:
+
+```typescript
+// app/(main)/layout.tsx
+export default function Layout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode;
+  modal: React.ReactNode;
+}) {
+  return (
+    <>
+      {children}
+      {modal}
+    </>
+  );
+}
+```
+
+### Loading States
+
+```typescript
+// app/(main)/chat/loading.tsx
+export default function Loading() {
+  return <ChatSkeleton />;
+}
+```
+
+## Development Workflow
+
+### Running the Development Server
+
+<Tabs>
+  <Tab title="Turbopack (Recommended)">
+    ```bash
+    # Start with Turbopack (faster)
+    nx dev web
+    # or
+    pnpm dev
+    ```
+    
+    Turbopack provides significantly faster hot module replacement.
+  </Tab>
+  
+  <Tab title="Webpack">
+    ```bash
+    # Start with Webpack
+    nx dev:webpack web
+    # or
+    pnpm dev:webpack
+    ```
+  </Tab>
+</Tabs>
+
+### Building for Production
+
+```bash
+# Build the application
+nx build web
+
+# Start production server
+nx start web
+```
+
+### Type Checking
+
+```bash
+# Run TypeScript type checking
+nx type-check web
+# or
+pnpm type
+```
+
+### Linting & Formatting
+
+GAIA uses Biome instead of ESLint and Prettier:
+
+```bash
+# Check code style and lint
+nx lint web
+
+# Auto-fix issues
+nx lint:fix web
+
+# Format code
+nx format web
+```
+
+## Environment Variables
+
+Create a `.env.local` file:
+
+```bash
+# API Configuration
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+
+# Feature Flags
+NEXT_PUBLIC_ENABLE_VOICE=true
+NEXT_PUBLIC_ENABLE_WORKFLOWS=true
+
+# Analytics
+NEXT_PUBLIC_POSTHOG_KEY=your_key
+NEXT_PUBLIC_SENTRY_DSN=your_dsn
+```
+
+## Performance Optimizations
+
+### Image Optimization
+
+```typescript
+import Image from 'next/image';
+
+export function Avatar({ src, alt }: { src: string; alt: string }) {
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={40}
+      height={40}
+      className="rounded-full"
+      loading="lazy"
+    />
+  );
+}
+```
+
+### Bundle Analysis
+
+```bash
+# Analyze bundle size
+ANALYZE=true nx build web
+```
+
+### Code Splitting
+
+```typescript
+import dynamic from 'next/dynamic';
+
+// Lazy load heavy components
+const WorkflowEditor = dynamic(
+  () => import('@/features/workflows/components/WorkflowEditor'),
+  {
+    loading: () => <EditorSkeleton />,
+    ssr: false,
+  }
+);
+```
+
+## UI Component Libraries
+
+GAIA uses multiple UI component libraries:
+
+<Tabs>
+  <Tab title="HeroUI">
+    ```typescript
+    import { Button, Card } from '@heroui/react';
+    
+    export function ActionCard() {
+      return (
+        <Card>
+          <Card.Body>
+            <h3>Quick Action</h3>
+            <Button color="primary">Execute</Button>
+          </Card.Body>
+        </Card>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Radix UI">
+    ```typescript
+    import * as Dialog from '@radix-ui/react-dialog';
+    
+    export function Modal({ children }: { children: React.ReactNode }) {
+      return (
+        <Dialog.Root>
+          <Dialog.Trigger asChild>
+            <button>Open</button>
+          </Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Overlay />
+            <Dialog.Content>{children}</Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Styling with TailwindCSS
+
+```typescript
+import { cn } from '@/lib/utils';
+
+export function Card({ 
+  className, 
+  children 
+}: { 
+  className?: string; 
+  children: React.ReactNode; 
+}) {
+  return (
+    <div className={cn(
+      'rounded-lg border bg-card text-card-foreground shadow-sm',
+      className
+    )}>
+      {children}
+    </div>
+  );
+}
+```
+
+## API Integration
+
+Use TanStack Query for data fetching:
+
+```typescript
+// features/chat/api/chatApi.ts
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+});
+
+export const chatApi = {
+  sendMessage: async (conversationId: string, content: string) => {
+    const { data } = await api.post(`/chat/${conversationId}/messages`, {
+      content,
+    });
+    return data;
+  },
+};
+```
+
+## Testing
+
+<Note>
+Testing infrastructure is being set up. Check back for testing guidelines.
+</Note>
+
+## Common Patterns
+
+### Feature-Based Organization
+
+Organize code by feature, not by type:
+
+```
+features/chat/
+├── components/
+│   ├── ChatBubbleBot.tsx
+│   ├── ChatComposer.tsx
+│   └── ChatList.tsx
+├── hooks/
+│   ├── useChat.ts
+│   └── useMessages.ts
+├── api/
+│   └── chatApi.ts
+├── types/
+│   └── index.ts
+└── utils/
+    └── messageUtils.ts
+```
+
+### Custom Hooks Pattern
+
+```typescript
+// hooks/useChat.ts
+export function useChat(conversationId: string) {
+  const messages = useChatStore((state) => 
+    state.messagesByConversation[conversationId] ?? []
+  );
+  
+  const sendMessage = useCallback(async (content: string) => {
+    // Implementation
+  }, [conversationId]);
+  
+  return { messages, sendMessage };
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Hydration Errors">
+    Hydration errors occur when server and client render differently:
+    
+    ```typescript
+    // Bad: Date will differ between server and client
+    <div>{new Date().toLocaleString()}</div>
+    
+    // Good: Use useEffect for client-only rendering
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+    if (!mounted) return null;
+    ```
+  </Accordion>
+  
+  <Accordion title="Module Not Found">
+    Check your path aliases in `tsconfig.json`:
+    
+    ```json
+    {
+      "compilerOptions": {
+        "paths": {
+          "@/*": ["./src/*"]
+        }
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Build Errors">
+    Clear Next.js cache:
+    
+    ```bash
+    rm -rf .next
+    nx build web
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Desktop App" icon="desktop" href="/developers/frontend/desktop-app">
+    Learn about the Electron desktop application
+  </Card>
+  <Card title="State Management" icon="database" href="/developers/frontend/state-management">
+    Explore Zustand stores and patterns
+  </Card>
+  <Card title="Component Structure" icon="layer-group" href="/developers/frontend/component-structure">
+    Understand component organization
+  </Card>
+  <Card title="Mobile App" icon="mobile" href="/developers/frontend/mobile-app">
+    Explore the React Native mobile app
+  </Card>
+</CardGroup>

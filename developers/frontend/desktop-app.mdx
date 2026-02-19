@@ -1,0 +1,558 @@
+---
+title: "Desktop App (Electron)"
+description: "Build and deploy GAIA's Electron desktop application with Next.js integration"
+---
+
+## Overview
+
+GAIA's desktop app is built with Electron, wrapping the Next.js web application in a native desktop container. It provides offline capabilities, native system integration, and automatic updates.
+
+## Architecture
+
+<CardGroup cols={2}>
+  <Card title="Electron 33" icon="window-maximize">
+    Latest Electron with native performance
+  </Card>
+  <Card title="Next.js Standalone" icon="server">
+    Embedded Next.js production server
+  </Card>
+  <Card title="Electron Vite" icon="bolt">
+    Fast development and build tooling
+  </Card>
+  <Card title="Auto Updates" icon="download">
+    Seamless updates with electron-updater
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+```bash
+apps/desktop/
+├── src/
+│   ├── main/              # Main process (Node.js)
+│   │   ├── index.ts       # Application entry point
+│   │   └── server.ts      # Next.js server management
+│   └── preload/           # Preload scripts (bridge)
+│       └── index.ts       # Context bridge API
+├── resources/             # App icons and assets
+├── out/                   # Build output
+├── dist/                  # Distribution packages
+├── electron.vite.config.ts # Vite configuration
+├── electron-builder.yml    # Build configuration
+└── package.json
+```
+
+## Main Process
+
+The main process manages the application lifecycle and creates windows:
+
+```typescript
+// src/main/index.ts
+import { app, BrowserWindow } from 'electron';
+import { startNextServer, getServerUrl } from './server';
+
+let mainWindow: BrowserWindow | null = null;
+
+async function createWindow() {
+  // Start Next.js server in background
+  await startNextServer();
+  
+  // Create browser window
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    show: false, // Don't show until ready
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  
+  // Load Next.js app
+  const serverUrl = getServerUrl();
+  await mainWindow.loadURL(serverUrl);
+  
+  // Show when ready
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+}
+
+app.whenReady().then(createWindow);
+```
+
+## Next.js Server Integration
+
+The desktop app embeds a Next.js standalone server:
+
+```typescript
+// src/main/server.ts
+import { spawn } from 'node:child_process';
+import { join } from 'node:path';
+import getPort from 'get-port';
+import waitOn from 'wait-on';
+
+let serverProcess: ChildProcess | null = null;
+let serverPort: number | null = null;
+
+export async function startNextServer(): Promise<number> {
+  if (serverPort) return serverPort;
+  
+  // Get available port
+  serverPort = await getPort({ port: 3000 });
+  
+  // Path to standalone Next.js server
+  const serverPath = join(
+    process.resourcesPath,
+    'web',
+    '.next',
+    'standalone',
+    'server.js'
+  );
+  
+  // Start server process
+  serverProcess = spawn('node', [serverPath], {
+    env: {
+      ...process.env,
+      PORT: serverPort.toString(),
+      HOSTNAME: '127.0.0.1',
+    },
+    stdio: 'pipe',
+  });
+  
+  // Wait for server to be ready
+  await waitOn({
+    resources: [`http://127.0.0.1:${serverPort}`],
+    timeout: 30000,
+  });
+  
+  return serverPort;
+}
+
+export function getServerUrl(): string {
+  if (!serverPort) throw new Error('Server not started');
+  return `http://127.0.0.1:${serverPort}`;
+}
+
+export function stopNextServer(): void {
+  if (serverProcess) {
+    serverProcess.kill();
+    serverProcess = null;
+    serverPort = null;
+  }
+}
+```
+
+## Preload Scripts
+
+Preload scripts create a secure bridge between main and renderer processes:
+
+```typescript
+// src/preload/index.ts
+import { contextBridge, ipcRenderer } from 'electron';
+
+// Expose protected methods to renderer
+contextBridge.exposeInMainWorld('electron', {
+  // App info
+  getVersion: () => ipcRenderer.invoke('get-version'),
+  
+  // Window controls
+  minimize: () => ipcRenderer.send('window-minimize'),
+  maximize: () => ipcRenderer.send('window-maximize'),
+  close: () => ipcRenderer.send('window-close'),
+  
+  // Deep linking
+  onDeepLink: (callback: (url: string) => void) => {
+    ipcRenderer.on('deep-link', (_event, url) => callback(url));
+  },
+});
+
+// TypeScript declarations
+declare global {
+  interface Window {
+    electron: {
+      getVersion: () => Promise<string>;
+      minimize: () => void;
+      maximize: () => void;
+      close: () => void;
+      onDeepLink: (callback: (url: string) => void) => void;
+    };
+  }
+}
+```
+
+## Auto Updates
+
+Electron Updater provides seamless automatic updates:
+
+```typescript
+// src/main/index.ts
+import { autoUpdater } from 'electron-updater';
+
+// Configure auto-updater
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function setupAutoUpdater(): void {
+  autoUpdater.on('update-available', (info) => {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Available',
+      message: `Version ${info.version} is available!`,
+      buttons: ['Download Update', 'Later'],
+    }).then(({ response }) => {
+      if (response === 0) {
+        autoUpdater.downloadUpdate();
+      }
+    });
+  });
+  
+  autoUpdater.on('update-downloaded', (info) => {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: 'Restart to apply the update?',
+      buttons: ['Restart Now', 'Later'],
+    }).then(({ response }) => {
+      if (response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+  
+  // Check for updates on startup
+  autoUpdater.checkForUpdates();
+}
+
+app.whenReady().then(() => {
+  setupAutoUpdater();
+});
+```
+
+## Deep Linking (OAuth)
+
+Register custom protocol for OAuth callbacks:
+
+```typescript
+// src/main/index.ts
+app.setAsDefaultProtocolClient('gaia');
+
+// Handle deep links
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  
+  // Send to renderer
+  if (mainWindow) {
+    mainWindow.webContents.send('deep-link', url);
+  }
+});
+
+// Windows/Linux: Handle command-line deep links
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    // Check for deep link in command line
+    const url = commandLine.find(arg => arg.startsWith('gaia://'));
+    if (url && mainWindow) {
+      mainWindow.webContents.send('deep-link', url);
+      mainWindow.focus();
+    }
+  });
+}
+```
+
+## Development Workflow
+
+### Running in Development
+
+<Tabs>
+  <Tab title="Development Mode">
+    ```bash
+    # Start desktop app in dev mode
+    nx dev desktop
+    
+    # This will:
+    # 1. Start Next.js dev server (web app)
+    # 2. Build main process with Electron Vite
+    # 3. Launch Electron with hot reload
+    ```
+  </Tab>
+  
+  <Tab title="Preview Mode">
+    ```bash
+    # Build and preview (production-like)
+    nx build desktop
+    nx start desktop
+    ```
+  </Tab>
+</Tabs>
+
+### Building for Distribution
+
+<Tabs>
+  <Tab title="All Platforms">
+    ```bash
+    # Build for current platform
+    nx dist desktop
+    ```
+  </Tab>
+  
+  <Tab title="macOS">
+    ```bash
+    # Build macOS app (.dmg, .zip)
+    nx dist:mac desktop
+    
+    # Output:
+    # - dist/GAIA-0.1.1.dmg
+    # - dist/GAIA-0.1.1-mac.zip
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    ```bash
+    # Build Windows app (.exe installer)
+    nx dist:win desktop
+    
+    # Output:
+    # - dist/GAIA Setup 0.1.1.exe
+    ```
+  </Tab>
+  
+  <Tab title="Linux">
+    ```bash
+    # Build Linux packages (.AppImage, .deb)
+    nx dist:linux desktop
+    
+    # Output:
+    # - dist/GAIA-0.1.1.AppImage
+    # - dist/gaia_0.1.1_amd64.deb
+    ```
+  </Tab>
+</Tabs>
+
+## Build Configuration
+
+Electron Builder configuration:
+
+```yaml
+# electron-builder.yml
+appId: io.heygaia.app
+productName: GAIA
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**/*
+  - resources/**/*
+  - "!**/*.map"
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  icon: resources/icon.icns
+
+win:
+  target:
+    - nsis
+  icon: resources/icon.ico
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Productivity
+  icon: resources/icons
+
+publish:
+  provider: github
+  owner: theexperiencecompany
+  repo: gaia
+```
+
+## Performance Optimizations
+
+### V8 Code Caching
+
+```typescript
+// src/main/index.ts (first line)
+import 'v8-compile-cache';
+
+// Improves startup time by ~20-30%
+```
+
+### GPU Acceleration
+
+```typescript
+// Enable hardware acceleration
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+```
+
+### Window Optimization
+
+```typescript
+const mainWindow = new BrowserWindow({
+  show: false, // Don't show until ready
+  backgroundColor: '#000000', // Prevent white flash
+  webPreferences: {
+    v8CacheOptions: 'code', // V8 code caching
+    enableWebSQL: false, // Disable unused features
+  },
+});
+```
+
+## Native Features
+
+### System Tray
+
+```typescript
+import { Tray, Menu } from 'electron';
+
+let tray: Tray | null = null;
+
+function createTray() {
+  tray = new Tray(path.join(__dirname, '../resources/tray-icon.png'));
+  
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Show App', click: () => mainWindow?.show() },
+    { label: 'Quit', click: () => app.quit() },
+  ]);
+  
+  tray.setContextMenu(contextMenu);
+  tray.setToolTip('GAIA');
+}
+```
+
+### Notifications
+
+```typescript
+import { Notification } from 'electron';
+
+function showNotification(title: string, body: string) {
+  new Notification({
+    title,
+    body,
+    icon: path.join(__dirname, '../resources/icon.png'),
+  }).show();
+}
+```
+
+## Security Best Practices
+
+<Warning>
+Always follow Electron security guidelines to prevent vulnerabilities.
+</Warning>
+
+### Context Isolation
+
+```typescript
+const mainWindow = new BrowserWindow({
+  webPreferences: {
+    nodeIntegration: false,        // Disable Node.js in renderer
+    contextIsolation: true,        // Enable context isolation
+    sandbox: true,                 // Enable sandbox
+    webSecurity: true,             // Enforce web security
+    preload: path.join(__dirname, 'preload.js'),
+  },
+});
+```
+
+### Content Security Policy
+
+```typescript
+session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+  callback({
+    responseHeaders: {
+      ...details.responseHeaders,
+      'Content-Security-Policy': [
+        "default-src 'self'; script-src 'self'",
+      ],
+    },
+  });
+});
+```
+
+## Debugging
+
+### DevTools
+
+```typescript
+// Open DevTools in development
+if (process.env.NODE_ENV === 'development') {
+  mainWindow.webContents.openDevTools();
+}
+```
+
+### Logging
+
+```typescript
+// Main process logs
+console.log('[Main Process]', message);
+
+// Renderer logs appear in DevTools console
+```
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="White Screen on Startup">
+    Set `show: false` and wait for `ready-to-show` event:
+    
+    ```typescript
+    mainWindow.once('ready-to-show', () => {
+      mainWindow?.show();
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Server Connection Failed">
+    Increase waitOn timeout or check Next.js build:
+    
+    ```typescript
+    await waitOn({
+      resources: [`http://127.0.0.1:${serverPort}`],
+      timeout: 60000, // Increase timeout
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Auto-update Not Working">
+    Ensure code signing for macOS/Windows:
+    
+    ```bash
+    # macOS
+    CSC_LINK=path/to/cert.p12 CSC_KEY_PASSWORD=password nx dist:mac desktop
+    
+    # Windows
+    CSC_LINK=path/to/cert.pfx CSC_KEY_PASSWORD=password nx dist:win desktop
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Web App" icon="browser" href="/developers/frontend/web-app">
+    Understand the Next.js web application
+  </Card>
+  <Card title="State Management" icon="database" href="/developers/frontend/state-management">
+    Learn about Zustand stores
+  </Card>
+  <Card title="Component Structure" icon="layer-group" href="/developers/frontend/component-structure">
+    Explore component organization
+  </Card>
+  <Card title="Distribution" icon="box" href="/developers/deployment">
+    Deploy and distribute the desktop app
+  </Card>
+</CardGroup>

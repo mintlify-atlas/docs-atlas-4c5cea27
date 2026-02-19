@@ -1,0 +1,596 @@
+---
+title: "Workflow Creation"
+description: "Automate repetitive tasks with GAIA's powerful workflow system"
+---
+
+## Overview
+
+Workflows in GAIA allow you to automate repetitive tasks and create sophisticated multi-step processes. Use AI to generate workflows from descriptions, or build them manually with triggers and actions.
+
+## Understanding workflows
+
+### What are workflows?
+
+A workflow is an automated sequence of actions triggered by specific events:
+
+- **Trigger**: The event that starts the workflow (e.g., new email, scheduled time, todo completed)
+- **Steps**: A series of actions GAIA performs (e.g., create todo, send email, update calendar)
+- **Conditions**: Optional logic to control when steps execute
+
+### Workflow components
+
+<CardGroup cols={2}>
+  <Card title="Triggers" icon="bolt">
+    Events that start your workflow: time-based, email received, todo created, calendar event, or manual execution.
+  </Card>
+  
+  <Card title="Actions" icon="play">
+    Tasks GAIA performs: send emails, create todos, update calendars, call APIs, or run custom logic.
+  </Card>
+  
+  <Card title="Conditions" icon="code-branch">
+    Logic that controls workflow execution: if/then rules, filters, and decision points.
+  </Card>
+  
+  <Card title="Variables" icon="code">
+    Dynamic data passed between steps: trigger data, previous step results, or user inputs.
+  </Card>
+</CardGroup>
+
+## Creating workflows
+
+### AI-generated workflows
+
+Let GAIA create workflows for you:
+
+<Steps>
+  <Step title="Describe your automation">
+    Tell GAIA what you want to automate:
+    - "Create a workflow that emails me a summary of my todos every morning"
+    - "Automate meeting preparation: create a todo 1 hour before each calendar event"
+    - "Send weekly reports every Friday at 5pm"
+  </Step>
+  
+  <Step title="Review the workflow">
+    GAIA analyzes your request and generates:
+    - Appropriate trigger
+    - Sequence of actions
+    - Any necessary conditions or filters
+  </Step>
+  
+  <Step title="Customize if needed">
+    Adjust the workflow:
+    - Modify trigger settings
+    - Add or remove steps
+    - Change action parameters
+  </Step>
+  
+  <Step title="Activate">
+    Enable the workflow to start automation.
+  </Step>
+</Steps>
+
+<Tip>
+  Be specific in your description. Include trigger timing, actions to perform, and any conditions. The more detail you provide, the better GAIA can generate the workflow.
+</Tip>
+
+### Manual workflow creation
+
+Build workflows step-by-step:
+
+<Steps>
+  <Step title="Open workflow builder">
+    Navigate to **Workflows** in the sidebar and click **Create Workflow**.
+  </Step>
+  
+  <Step title="Name your workflow">
+    Give it a descriptive name like "Morning Email Digest" or "Meeting Prep Automation".
+  </Step>
+  
+  <Step title="Configure trigger">
+    Select a trigger type and configure its settings:
+    - **Schedule**: Run at specific times
+    - **Email**: Trigger on incoming messages
+    - **Todo**: When tasks are created or completed
+    - **Calendar**: Before or after events
+    - **Manual**: Run on demand
+  </Step>
+  
+  <Step title="Add actions">
+    Build your workflow steps:
+    - Click **Add Step**
+    - Choose an action type
+    - Configure action parameters
+    - Use variables from previous steps
+  </Step>
+  
+  <Step title="Test the workflow">
+    Run a test execution to verify it works correctly.
+  </Step>
+  
+  <Step title="Activate">
+    Enable the workflow to begin automation.
+  </Step>
+</Steps>
+
+### From todos
+
+Convert complex tasks into workflows:
+
+<Steps>
+  <Step title="Open a todo">
+    Click on any todo that involves multiple steps or could benefit from automation.
+  </Step>
+  
+  <Step title="Generate workflow">
+    Click **Generate Workflow** in the todo details panel.
+  </Step>
+  
+  <Step title="Wait for generation">
+    GAIA analyzes the todo and creates a workflow in the background. You'll receive a notification when it's ready.
+  </Step>
+  
+  <Step title="Review and activate">
+    Check the generated workflow and activate it.
+  </Step>
+</Steps>
+
+Workflow generation from todos is powered by `apps/web/src/features/todo/api/todoApi.ts:321`.
+
+## Trigger types
+
+### Schedule triggers
+
+Run workflows at specific times:
+
+- **Fixed schedule**: Daily at 9am, Every Monday at 8pm
+- **Cron expressions**: Complex timing patterns
+- **Intervals**: Every 30 minutes, Every 2 hours
+
+<AccordionGroup>
+  <Accordion title="Daily schedules">
+    Run once per day at a specific time:
+    - Morning summaries
+    - End of day reviews
+    - Daily backups or reports
+  </Accordion>
+  
+  <Accordion title="Weekly schedules">
+    Run on specific days of the week:
+    - Monday morning planning
+    - Friday afternoon reports
+    - Weekend reminders
+  </Accordion>
+  
+  <Accordion title="Custom intervals">
+    Run repeatedly at fixed intervals:
+    - Check for updates every 15 minutes
+    - Sync data every hour
+    - Periodic health checks
+  </Accordion>
+</AccordionGroup>
+
+### Email triggers
+
+Start workflows when emails arrive:
+
+- **All emails**: Process every incoming message
+- **From specific senders**: React to emails from certain people
+- **With keywords**: Filter by subject or body content
+- **With attachments**: Trigger on emails with files
+
+<Note>
+  Email triggers are great for automated responses, task creation from emails, or forwarding important messages.
+</Note>
+
+### Todo triggers
+
+React to task changes:
+
+- **Todo created**: When new tasks are added
+- **Todo completed**: After tasks are marked done
+- **Todo updated**: When task details change
+- **Todo overdue**: When tasks pass their due date
+
+### Calendar triggers
+
+Trigger based on events:
+
+- **Before event**: Run X minutes/hours before an event starts
+- **After event**: Run when an event ends
+- **Event created**: When new calendar events are added
+- **Event updated**: When event details change
+
+### Manual triggers
+
+Run workflows on demand:
+
+- Execute from the workflow list
+- Trigger via chat command
+- Button in the UI
+- API call from external systems
+
+## Action types
+
+### Email actions
+
+Send and manage emails:
+
+- **Send email**: Compose and send messages
+- **Reply to email**: Respond to incoming messages
+- **Forward email**: Share emails with others
+- **Archive/Delete**: Manage inbox automatically
+
+### Calendar actions
+
+Manage your schedule:
+
+- **Create event**: Add new calendar entries
+- **Update event**: Modify existing events
+- **Delete event**: Remove events
+- **Find free time**: Search for available slots
+
+### Todo actions
+
+Automate task management:
+
+- **Create todo**: Add new tasks
+- **Update todo**: Change task details
+- **Complete todo**: Mark tasks as done
+- **Search todos**: Find tasks by criteria
+
+### Notification actions
+
+Stay informed:
+
+- **Send notification**: Display in-app alerts
+- **Email notification**: Send email reminders
+- **Browser notification**: Desktop notifications
+
+### Custom actions
+
+Extend functionality:
+
+- **HTTP request**: Call external APIs
+- **Run script**: Execute custom code
+- **Data transformation**: Process and format data
+- **AI tasks**: Use AI for custom operations
+
+## Workflow management
+
+### Viewing workflows
+
+Access your workflows from the **Workflows** page:
+
+- **Active workflows**: Currently running automations
+- **Draft workflows**: Unfinished or disabled workflows
+- **Community workflows**: Public workflows from other users
+
+### Workflow list features
+
+- **Filter by status**: Active, draft, or all
+- **Filter by source**: User-created, AI-generated, or community
+- **Search workflows**: Find by name or description
+- **Sort options**: By date, name, or execution count
+
+Workflow listing is managed via `apps/web/src/features/workflows/api/workflowApi.ts:35`.
+
+### Activating and deactivating
+
+Control workflow execution:
+
+**Activate:**
+- Click the toggle switch on a workflow
+- Or click **Activate** in the workflow details
+- Active workflows run automatically based on their triggers
+
+**Deactivate:**
+- Turn off the toggle to stop execution
+- Workflows remain in your list but won't trigger
+- Useful for temporary disabling
+
+Activation is handled via `apps/web/src/features/workflows/api/workflowApi.ts:88`.
+
+### Editing workflows
+
+<Steps>
+  <Step title="Open workflow">
+    Click on any workflow to view its details.
+  </Step>
+  
+  <Step title="Click Edit">
+    Open the workflow editor.
+  </Step>
+  
+  <Step title="Modify settings">
+    Change trigger, actions, conditions, or any other configuration.
+  </Step>
+  
+  <Step title="Save changes">
+    Updates are applied immediately. If the workflow is active, changes take effect on the next execution.
+  </Step>
+</Steps>
+
+### Deleting workflows
+
+Remove workflows you no longer need:
+
+1. Click on the workflow
+2. Click **Delete**
+3. Confirm the deletion
+
+<Warning>
+  Deleted workflows cannot be recovered. Make sure you want to permanently remove the automation.
+</Warning>
+
+## Workflow execution
+
+### Automatic execution
+
+Active workflows run automatically when their trigger conditions are met:
+
+- Schedule-based workflows run at their configured times
+- Event-based workflows trigger when events occur
+- Each execution is logged for monitoring
+
+### Manual execution
+
+Run workflows on demand:
+
+- Click **Execute** on the workflow
+- Or ask GAIA: "Run my morning digest workflow"
+- Useful for testing or one-off executions
+
+Manual execution is available via `apps/web/src/features/workflows/api/workflowApi.ts:132`.
+
+### Execution history
+
+Monitor workflow performance:
+
+<Steps>
+  <Step title="Open workflow">
+    Click on a workflow to view details.
+  </Step>
+  
+  <Step title="View history">
+    Navigate to the **Execution History** tab.
+  </Step>
+  
+  <Step title="Review executions">
+    See past runs with:
+    - Execution time
+    - Status (success, failed, running)
+    - Duration
+    - Step-by-step logs
+    - Error messages if failed
+  </Step>
+</Steps>
+
+Execution history is retrieved from `apps/web/src/features/workflows/api/workflowApi.ts:159`.
+
+<Tip>
+  Use execution history to debug workflows and understand what happened during each run.
+</Tip>
+
+### Error handling
+
+When workflows fail:
+
+- Execution stops at the failed step
+- Error details are logged in execution history
+- You receive a notification (if enabled)
+- Fix the issue and re-run or retry the workflow
+
+## Advanced workflow features
+
+### Conditional logic
+
+Add decision points to your workflows:
+
+- **If/then branches**: Execute different steps based on conditions
+- **Filters**: Skip executions when conditions aren't met
+- **Loops**: Repeat steps for multiple items
+
+### Variables and data passing
+
+Use dynamic data in your workflows:
+
+- **Trigger data**: Information from the event that started the workflow
+- **Step outputs**: Results from previous actions
+- **User inputs**: Values you provide when configuring
+- **System variables**: Current date, user info, etc.
+
+### Workflow templates
+
+Start from pre-built workflows:
+
+- Browse community workflows for inspiration
+- Clone existing workflows and customize
+- Share your workflows with others
+
+### Publishing workflows
+
+Share workflows with the community:
+
+<Steps>
+  <Step title="Create a useful workflow">
+    Build a workflow that others might find helpful.
+  </Step>
+  
+  <Step title="Click Publish">
+    Open the workflow and click **Publish to Community**.
+  </Step>
+  
+  <Step title="Add description">
+    Provide clear documentation about what the workflow does and how to use it.
+  </Step>
+  
+  <Step title="Submit">
+    Your workflow becomes available in the community library.
+  </Step>
+</Steps>
+
+Publishing is managed via `apps/web/src/features/workflows/api/workflowApi.ts:193`.
+
+## Workflow best practices
+
+<CardGroup cols={2}>
+  <Card title="Start simple" icon="seedling">
+    Begin with basic workflows. Add complexity as you learn the system.
+  </Card>
+  
+  <Card title="Use descriptive names" icon="tag">
+    Name workflows clearly: "Daily Email Summary" not "Workflow 1".
+  </Card>
+  
+  <Card title="Test before activating" icon="flask">
+    Always test workflows with manual execution before enabling automatic triggers.
+  </Card>
+  
+  <Card title="Monitor execution" icon="chart-line">
+    Check execution history regularly to catch failures early.
+  </Card>
+  
+  <Card title="Handle errors gracefully" icon="shield">
+    Add error handling and fallback actions for critical workflows.
+  </Card>
+  
+  <Card title="Document your workflows" icon="book">
+    Add descriptions explaining what the workflow does and why.
+  </Card>
+  
+  <Card title="Keep steps focused" icon="bullseye">
+    Each step should do one thing well. Break complex workflows into multiple simpler ones.
+  </Card>
+  
+  <Card title="Use variables" icon="code">
+    Make workflows flexible with variables instead of hardcoded values.
+  </Card>
+</CardGroup>
+
+## Common workflow examples
+
+### Daily digest
+
+Get a morning summary of your day:
+
+- **Trigger**: Every day at 8am
+- **Actions**:
+  1. Fetch today's calendar events
+  2. Get today's todos
+  3. Summarize important emails
+  4. Send combined summary via email
+
+### Meeting preparation
+
+Automate meeting prep:
+
+- **Trigger**: 1 hour before each calendar event
+- **Actions**:
+  1. Create a prep todo
+  2. Fetch related emails and documents
+  3. Send notification with context
+
+### Email automation
+
+Auto-process incoming emails:
+
+- **Trigger**: New email arrives
+- **Actions**:
+  1. Check sender and subject
+  2. If important: create todo and notify
+  3. If newsletter: archive
+  4. If spam: delete
+
+### Weekly reports
+
+Generate status reports:
+
+- **Trigger**: Every Friday at 4pm
+- **Actions**:
+  1. Count completed todos this week
+  2. List upcoming events
+  3. Summarize achievement
+  4. Email report to team
+
+### Task follow-up
+
+Automatic follow-ups:
+
+- **Trigger**: Todo becomes overdue
+- **Actions**:
+  1. Send notification
+  2. Adjust priority to high
+  3. Create follow-up todo for tomorrow
+
+## Integration with other features
+
+### Chat integration
+
+Manage workflows conversationally:
+
+- "Show me my active workflows"
+- "Run my daily digest workflow"
+- "Create a workflow to archive old emails"
+- "Disable the meeting prep workflow"
+
+### Todo integration
+
+Workflows can create and manage todos:
+
+- Generate todos from workflow steps
+- Create workflows from complex todos
+- Link workflow executions to related todos
+
+### Calendar and email integration
+
+Workflows connect all your tools:
+
+- Trigger workflows from calendar events
+- Create events from workflow actions
+- Process emails with workflows
+- Send emails as workflow outputs
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Workflow not triggering">
+    1. Check that the workflow is activated
+    2. Verify trigger configuration is correct
+    3. Review execution history for errors
+    4. Test with manual execution
+  </Accordion>
+  
+  <Accordion title="Workflow failing">
+    1. Check execution history for error details
+    2. Verify all integrations are connected
+    3. Test each step individually
+    4. Check for invalid variables or data
+  </Accordion>
+  
+  <Accordion title="Unexpected results">
+    1. Review step configurations
+    2. Check variable values in execution logs
+    3. Verify conditional logic
+    4. Test with different trigger data
+  </Accordion>
+  
+  <Accordion title="Performance issues">
+    1. Reduce frequency of scheduled workflows
+    2. Limit the number of actions per workflow
+    3. Use filters to reduce unnecessary executions
+    4. Consider splitting into multiple workflows
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Goal Tracking" icon="bullseye" href="/guide/goal-tracking">
+    Learn how to set and track long-term goals with GAIA.
+  </Card>
+  
+  <Card title="Chat Interface" icon="comments" href="/guide/chat-interface">
+    Manage workflows through natural language conversations.
+  </Card>
+</CardGroup>

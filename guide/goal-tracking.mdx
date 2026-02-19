@@ -1,0 +1,499 @@
+---
+title: "Goal Tracking"
+description: "Set, track, and achieve your long-term goals with GAIA's intelligent goal management system"
+---
+
+## Overview
+
+GAIA's goal tracking system helps you define long-term objectives, break them down into actionable steps, and track progress over time. The system uses AI to generate roadmaps and visualize your path to success.
+
+## Understanding goals
+
+### What are goals?
+
+Goals in GAIA are high-level objectives you want to achieve:
+
+- **Personal goals**: Learn a new skill, improve health, develop habits
+- **Professional goals**: Career advancement, project completion, skill development
+- **Business goals**: Revenue targets, customer acquisition, product launches
+- **Learning goals**: Complete courses, master technologies, gain certifications
+
+### Goals vs. Todos
+
+<CardGroup cols={2}>
+  <Card title="Goals" icon="bullseye">
+    Long-term objectives that take weeks, months, or years to achieve. They have roadmaps with multiple milestones.
+  </Card>
+  
+  <Card title="Todos" icon="list-check">
+    Short-term tasks completed in days or hours. They're actionable items with clear completion criteria.
+  </Card>
+</CardGroup>
+
+Goals can contain todos as action items, but they're broader in scope and timeline.
+
+## Creating goals
+
+### Manual goal creation
+
+<Steps>
+  <Step title="Navigate to Goals">
+    Click the **Goals** icon in the sidebar to open the goals page.
+  </Step>
+  
+  <Step title="Click Add Goal">
+    Find the **Add Goal** or **+** button to open the goal creation dialog.
+  </Step>
+  
+  <Step title="Define your goal">
+    Fill in the goal details:
+    - **Title**: A clear, specific goal statement (e.g., "Launch MVP of mobile app")
+    - **Description**: Detailed explanation of what you want to achieve and why
+    - **Target date**: When you want to achieve this goal (optional)
+    - **Category**: Personal, professional, health, learning, etc.
+  </Step>
+  
+  <Step title="Save the goal">
+    Click **Create** to save your goal.
+  </Step>
+</Steps>
+
+### AI-assisted goal creation
+
+Let GAIA help you define your goal:
+
+<Steps>
+  <Step title="Describe your objective">
+    Tell GAIA what you want to achieve: "I want to get fit and run a 5K race" or "I want to learn Python for data science."
+  </Step>
+  
+  <Step title="Provide context">
+    Share additional information:
+    - Your current situation
+    - Timeline or deadline
+    - Resources available
+    - Constraints or challenges
+  </Step>
+  
+  <Step title="Review the goal">
+    GAIA will help you formulate a clear, achievable goal with:
+    - Specific outcome
+    - Measurable criteria
+    - Realistic timeline
+    - Action-oriented language
+  </Step>
+  
+  <Step title="Generate roadmap">
+    GAIA can automatically create a roadmap with milestones and action items.
+  </Step>
+</Steps>
+
+<Tip>
+  Use the SMART framework: Specific, Measurable, Achievable, Relevant, Time-bound. GAIA can help you refine vague goals into SMART goals.
+</Tip>
+
+## Goal roadmaps
+
+### What is a roadmap?
+
+A roadmap is a visual representation of the steps needed to achieve your goal:
+
+- **Nodes**: Milestones or action items
+- **Connections**: Dependencies between steps
+- **Progress**: Visual tracking of completed vs. pending items
+- **Timeline**: Estimated duration for each phase
+
+### AI-generated roadmaps
+
+GAIA creates roadmaps automatically:
+
+<Steps>
+  <Step title="Open your goal">
+    Click on any goal to view its details.
+  </Step>
+  
+  <Step title="Generate roadmap">
+    If the goal doesn't have a roadmap yet, click **Generate Roadmap**.
+  </Step>
+  
+  <Step title="Wait for AI processing">
+    GAIA analyzes your goal and creates a structured plan with:
+    - Key milestones
+    - Sub-goals or phases
+    - Action items
+    - Suggested timeline
+    - Dependencies between steps
+  </Step>
+  
+  <Step title="Review and customize">
+    The roadmap appears as a visual graph. You can:
+    - Add or remove nodes
+    - Adjust connections
+    - Modify descriptions
+    - Update timelines
+  </Step>
+</Steps>
+
+<Note>
+  Roadmap generation uses AI to break down complex goals into manageable steps. The algorithm considers best practices and common patterns for achieving similar goals.
+</Note>
+
+### Roadmap visualization
+
+The roadmap is displayed as an interactive graph:
+
+- **Nodes**: Circular elements representing each step
+- **Lines**: Connections showing workflow and dependencies
+- **Colors**: Visual indicators of status:
+  - Gray: Not started
+  - Blue: In progress
+  - Green: Completed
+- **Layout**: Automatic positioning for easy understanding
+
+The visualization uses React Flow for interactive node manipulation from `apps/web/src/features/goals/components/CustomNode.tsx`.
+
+### Editing roadmaps
+
+Customize your roadmap:
+
+- **Add nodes**: Click **Add Step** to create new milestones
+- **Remove nodes**: Delete steps that aren't needed
+- **Edit details**: Click any node to update its title and description
+- **Reorder steps**: Drag and drop nodes to reorganize
+- **Update connections**: Modify dependencies between steps
+
+## Tracking progress
+
+### Marking steps complete
+
+Update progress as you work:
+
+<Steps>
+  <Step title="Open the goal">
+    Navigate to the goal you're working on.
+  </Step>
+  
+  <Step title="View the roadmap">
+    The roadmap shows all steps and their current status.
+  </Step>
+  
+  <Step title="Complete a step">
+    Click the checkbox on any node to mark it complete. The node turns green.
+  </Step>
+  
+  <Step title="Track overall progress">
+    The goal shows overall completion percentage based on completed nodes.
+  </Step>
+</Steps>
+
+Node status updates are saved via `apps/web/src/features/goals/api/goalsApi.ts:36`.
+
+### Progress visualization
+
+See your progress at a glance:
+
+- **Completion percentage**: Overall progress bar
+- **Completed nodes**: Count of finished steps
+- **Visual roadmap**: Green nodes show completed work
+- **Timeline tracking**: Compare actual vs. estimated timeline
+
+### Goal status
+
+Goals have different states:
+
+- **Active**: Currently working on this goal
+- **On hold**: Temporarily paused
+- **Completed**: Goal achieved
+- **Abandoned**: No longer pursuing
+
+<Tip>
+  Update goal status regularly to reflect your current priorities. This helps you focus on active goals.
+</Tip>
+
+## Managing goals
+
+### Goal list view
+
+The goals page shows all your goals:
+
+- **Filter by status**: Active, completed, or all
+- **Filter by category**: Personal, professional, etc.
+- **Sort options**: By date created, target date, or progress
+- **Search**: Find goals by title or description
+
+### Goal details
+
+Click any goal to see:
+
+- Full description
+- Target date and timeline
+- Current progress and completion rate
+- Interactive roadmap
+- Related todos and workflows
+- Notes and updates
+
+### Editing goals
+
+<Steps>
+  <Step title="Open the goal">
+    Click on any goal in your list.
+  </Step>
+  
+  <Step title="Click Edit">
+    Open the goal editor.
+  </Step>
+  
+  <Step title="Modify details">
+    Update title, description, target date, or category.
+  </Step>
+  
+  <Step title="Save changes">
+    Changes are applied immediately.
+  </Step>
+</Steps>
+
+Goal updates are handled via `apps/web/src/features/goals/api/goalsApi.ts:28`.
+
+### Deleting goals
+
+Remove goals you no longer want to track:
+
+1. Open the goal
+2. Click **Delete**
+3. Confirm the deletion
+
+<Warning>
+  Deleting a goal removes its roadmap and all progress tracking. This action cannot be undone.
+</Warning>
+
+## Goal strategies
+
+### Breaking down large goals
+
+For ambitious goals, use a hierarchical approach:
+
+1. **Main goal**: The ultimate objective
+2. **Sub-goals**: Major phases or milestones
+3. **Action items**: Specific tasks within each phase
+4. **Todos**: Day-to-day work items
+
+### Setting realistic timelines
+
+Estimate timelines effectively:
+
+- **Start date**: When you'll begin working on this goal
+- **Target date**: Realistic completion date
+- **Milestones**: Intermediate deadlines for key phases
+- **Buffer time**: Add extra time for unexpected delays
+
+### Review and adjust
+
+Regularly review your goals:
+
+- **Weekly reviews**: Check progress on active goals
+- **Monthly assessments**: Evaluate if goals are still relevant
+- **Adjust roadmaps**: Update steps based on learnings
+- **Celebrate wins**: Acknowledge completed milestones
+
+## Advanced features
+
+### Goal dependencies
+
+Some goals depend on others:
+
+- **Prerequisites**: Goals that must complete first
+- **Related goals**: Goals that support each other
+- **Milestone linking**: Connect roadmap nodes across goals
+
+### Goal analytics
+
+Track your goal-setting effectiveness:
+
+- **Completion rate**: Percentage of goals achieved
+- **Average time to completion**: How long goals typically take
+- **Success patterns**: What types of goals you complete most
+- **Roadmap accuracy**: How well AI predictions match reality
+
+### Collaborative goals
+
+Work on goals with others:
+
+- **Shared goals**: Multiple people working toward the same objective
+- **Assigned nodes**: Distribute roadmap steps among team members
+- **Progress updates**: See what others have completed
+- **Comments**: Discuss progress and challenges
+
+### Goal templates
+
+Reuse successful goal structures:
+
+- Common goal patterns (learning, fitness, project launch)
+- Pre-built roadmaps for typical objectives
+- Customizable templates you create
+- Community-shared goal templates
+
+## Integration with other features
+
+### Todo integration
+
+Connect goals with daily work:
+
+- **Create todos from roadmap nodes**: Turn milestones into actionable tasks
+- **Link todos to goals**: Associate daily work with long-term objectives
+- **Progress sync**: Completing todos updates goal progress
+
+### Calendar integration
+
+Schedule goal work:
+
+- **Time blocking**: Reserve calendar time for goal work
+- **Milestone dates**: Add roadmap deadlines to calendar
+- **Reminders**: Get notified before key milestone dates
+
+### Workflow integration
+
+Automate goal tracking:
+
+- **Progress workflows**: Automatic updates when milestones complete
+- **Reminder workflows**: Periodic check-ins on goal progress
+- **Reporting workflows**: Weekly or monthly goal status summaries
+
+### Chat integration
+
+Manage goals conversationally:
+
+- "What goals am I working on?"
+- "Show me progress on my Python learning goal"
+- "Mark the first milestone of my app project as complete"
+- "Create a goal to improve my public speaking skills"
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Be specific" icon="crosshairs">
+    Clear goals are achievable goals. "Learn Python" becomes "Complete Python for Data Science course by June."
+  </Card>
+  
+  <Card title="Set realistic timelines" icon="clock">
+    Ambitious is good, but impossible timelines lead to discouragement. Add buffer time.
+  </Card>
+  
+  <Card title="Break it down" icon="diagram-project">
+    Large goals are overwhelming. Use roadmaps to create manageable steps.
+  </Card>
+  
+  <Card title="Review regularly" icon="rotate">
+    Weekly check-ins keep goals top of mind. Monthly reviews ensure goals remain relevant.
+  </Card>
+  
+  <Card title="Celebrate progress" icon="party-horn">
+    Acknowledge completed milestones. Small wins motivate continued effort.
+  </Card>
+  
+  <Card title="Stay flexible" icon="arrows-rotate">
+    Goals can evolve. Update roadmaps as you learn and circumstances change.
+  </Card>
+  
+  <Card title="Focus on few goals" icon="list">
+    Work on 3-5 active goals maximum. More leads to diluted effort.
+  </Card>
+  
+  <Card title="Connect to purpose" icon="heart">
+    Know why each goal matters. Purpose drives persistence through challenges.
+  </Card>
+</CardGroup>
+
+## Example goals
+
+### Learning goal: Master React
+
+**Objective**: Become proficient in React development
+
+**Roadmap**:
+1. Complete React fundamentals course
+2. Build 3 practice projects
+3. Learn React hooks and context
+4. Study React performance optimization
+5. Contribute to open source React project
+6. Build and deploy production app
+
+**Timeline**: 6 months
+
+### Career goal: Get promoted
+
+**Objective**: Advance to senior engineer position
+
+**Roadmap**:
+1. Identify promotion requirements
+2. Develop technical leadership skills
+3. Lead a major project
+4. Mentor junior team members
+5. Present at team meetings and conferences
+6. Document achievements for review
+
+**Timeline**: 12 months
+
+### Fitness goal: Run a marathon
+
+**Objective**: Complete a full marathon
+
+**Roadmap**:
+1. Get medical clearance
+2. Build base fitness (run 3 times/week)
+3. Complete a 10K race
+4. Follow half-marathon training plan
+5. Run a half-marathon
+6. Complete full marathon training plan
+7. Run the marathon
+
+**Timeline**: 9 months
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't create roadmap">
+    1. Ensure your goal description is detailed enough
+    2. Try regenerating with more specific information
+    3. Create a manual roadmap and add nodes yourself
+    4. Contact support if AI generation fails repeatedly
+  </Accordion>
+  
+  <Accordion title="Progress not updating">
+    1. Refresh the page
+    2. Check that you're marking nodes complete (not just viewing)
+    3. Verify goal status is set to Active
+    4. Check browser console for errors
+  </Accordion>
+  
+  <Accordion title="Lost motivation">
+    1. Review why this goal matters to you
+    2. Break down next steps into smaller actions
+    3. Celebrate progress you've made so far
+    4. Consider adjusting timeline or approach
+    5. Share your goal with someone for accountability
+  </Accordion>
+  
+  <Accordion title="Goal seems impossible">
+    1. Re-evaluate if the goal is realistic
+    2. Break it into smaller sub-goals
+    3. Extend the timeline
+    4. Focus on the first milestone only
+    5. Seek mentorship or guidance
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Todo Management" icon="list-check" href="/guide/todo-management">
+    Break down goal milestones into actionable todos.
+  </Card>
+  
+  <Card title="Workflow Creation" icon="diagram-project" href="/guide/workflow-creation">
+    Automate goal tracking and progress updates.
+  </Card>
+  
+  <Card title="Chat Interface" icon="comments" href="/guide/chat-interface">
+    Manage goals through natural language conversations.
+  </Card>
+</CardGroup>

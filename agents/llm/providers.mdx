@@ -1,0 +1,406 @@
+---
+title: LLM Providers
+description: Configure and manage language model providers in GAIA
+---
+
+# LLM Providers
+
+GAIA supports multiple LLM providers with automatic fallback and configurable alternatives.
+
+## Supported Providers
+
+### OpenAI
+
+```python
+# Location: apps/api/app/agents/llm/client.py:47
+@lazy_provider(
+    name="openai_llm",
+    required_keys=[settings.OPENAI_API_KEY],
+    strategy=MissingKeyStrategy.WARN,
+)
+def init_openai_llm():
+    """Initialize OpenAI LLM with default model."""
+    return ChatOpenAI(
+        model="gpt-4o",
+        temperature=0.1,
+        streaming=True,
+        stream_usage=True,
+    ).configurable_fields(
+        model_name=ConfigurableField(
+            id="model",
+            name="Model",
+            description="Which model to use"
+        ),
+    )
+```
+
+**Models**: GPT-4o, GPT-4-turbo, GPT-3.5-turbo
+
+**Features**:
+- Streaming support
+- Function calling
+- Vision capabilities (GPT-4o)
+- Token usage tracking
+
+### Google Gemini
+
+```python
+@lazy_provider(
+    name="gemini_llm",
+    required_keys=[settings.GOOGLE_API_KEY],
+    strategy=MissingKeyStrategy.WARN,
+)
+def init_gemini_llm():
+    """Initialize Gemini LLM with default model."""
+    return ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash-exp",
+        temperature=0.1,
+    ).configurable_fields(
+        model=ConfigurableField(
+            id="model_name",
+            name="Model",
+            description="Which model to use"
+        ),
+    )
+```
+
+**Models**: Gemini 2.0 Flash, Gemini 1.5 Pro
+
+**Features**:
+- Fast inference
+- Long context windows
+- Multimodal support
+- Free tier available
+
+### OpenRouter
+
+```python
+@lazy_provider(
+    name="openrouter_llm",
+    required_keys=[settings.OPENROUTER_API_KEY],
+    strategy=MissingKeyStrategy.WARN,
+)
+def init_openrouter_llm():
+    """Initialize OpenRouter for Grok and other models with reasoning support."""
+    return ChatOpenAI(
+        model="x-ai/grok-2-1212",
+        temperature=0.1,
+        streaming=True,
+        stream_usage=True,
+        api_key=settings.OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1",
+        default_headers={
+            "HTTP-Referer": settings.FRONTEND_URL,
+            "X-Title": "GAIA",
+        },
+        extra_body={
+            "reasoning": {
+                "effort": "medium",  # Enable reasoning for thinking models
+            }
+        },
+    ).configurable_fields(
+        model_name=ConfigurableField(
+            id="model",
+            name="Model",
+            description="Which model to use"
+        ),
+    )
+```
+
+**Models**: Grok-2, Claude 3.7+, DeepSeek R1, and 100+ others
+
+**Features**:
+- Access to multiple providers via single API
+- Reasoning support for thinking models
+- Automatic fallback models
+- Cost optimization
+
+## Provider Initialization
+
+### Default Initialization
+
+```python
+from app.agents.llm.client import init_llm
+
+# Initialize with default priority
+llm = init_llm()
+# Priority: 1. OpenAI, 2. Gemini, 3. OpenRouter
+```
+
+### Preferred Provider
+
+```python
+# Use specific provider
+llm = init_llm(preferred_provider="gemini")
+# Uses Gemini as primary, with fallback to others
+
+llm = init_llm(preferred_provider="openai", fallback_enabled=False)
+# Uses only OpenAI, no fallback
+```
+
+### Free Model
+
+```python
+# Use free/low-cost LLM for auxiliary tasks
+llm = init_llm(use_free=True)
+# Uses Gemini 2.0 Flash via OpenRouter
+# Good for: follow-up actions, descriptions, summaries
+```
+
+## Provider Priority
+
+```python
+# Location: apps/api/app/agents/llm/client.py:24
+PROVIDER_MODELS = {
+    "openai": "gpt-4o",
+    "gemini": "gemini-2.0-flash-exp",
+    "openrouter": "x-ai/grok-2-1212",
+}
+
+PROVIDER_PRIORITY = {
+    1: "openai",
+    2: "gemini",
+    3: "openrouter",
+}
+```
+
+## Fallback Chain
+
+```python
+def init_llm(
+    preferred_provider: Optional[str] = None,
+    fallback_enabled: bool = True,
+    use_free: bool = False,
+):
+    """
+    Initialize LLM with configurable alternatives.
+    
+    Args:
+        preferred_provider: Specific provider to prefer ("openai", "gemini", etc.)
+        fallback_enabled: Whether to enable fallback to other providers
+        use_free: Use free model (Gemini 2.0 Flash via OpenRouter)
+    
+    Returns:
+        Configured LLM instance with alternatives
+    """
+    # Get available providers
+    available_providers = _get_available_providers()
+    
+    if not available_providers:
+        raise RuntimeError("No LLM providers are properly configured.")
+    
+    # Determine provider order
+    ordered_providers = _get_ordered_providers(
+        available_providers,
+        preferred_provider,
+        fallback_enabled
+    )
+    
+    # Create configurable LLM with alternatives
+    primary_provider = ordered_providers[0]
+    alternative_providers = ordered_providers[1:] if fallback_enabled else []
+    
+    return _create_configurable_llm(primary_provider, alternative_providers)
+```
+
+### Example Fallback Flow
+
+```python
+# User has only Gemini API key configured
+llm = init_llm(preferred_provider="openai")
+
+# Result:
+# 1. OpenAI not available (no API key)
+# 2. Falls back to Gemini (available)
+# 3. OpenRouter not needed
+# Returns: Gemini LLM
+```
+
+## Model Configuration
+
+Models can be configured per-request:
+
+```python
+from langchain_core.runnables import RunnableConfig
+
+config = RunnableConfig(
+    configurable={
+        "model": "gpt-4-turbo",  # Override default model
+        "provider": "openai",     # Switch provider
+    }
+)
+
+response = await llm.ainvoke(messages, config=config)
+```
+
+## Free LLM Chain
+
+For cost-effective auxiliary tasks:
+
+```python
+from app.agents.llm.client import get_free_llm_chain, invoke_with_fallback
+
+# Get chain of free/low-cost LLMs
+llm_chain = get_free_llm_chain()
+# Returns: [OpenRouter Gemini 2.0 Flash, Direct Gemini API]
+
+# Invoke with automatic fallback
+response = await invoke_with_fallback(
+    llm_chain,
+    messages=[HumanMessage(content="Summarize this...")],
+)
+# Tries OpenRouter first, falls back to direct Gemini if needed
+```
+
+**Use cases for free LLM:**
+- Follow-up action generation
+- Workflow descriptions
+- Email summaries
+- Todo title suggestions
+- Non-critical completions
+
+## Token Usage Tracking
+
+```python
+from langchain_core.callbacks import UsageMetadataCallbackHandler
+
+# Create callback handler
+usage_callback = UsageMetadataCallbackHandler()
+
+# Pass to agent config
+config = {
+    "callbacks": [usage_callback],
+}
+
+# After execution
+print(usage_callback.total_tokens)      # Total tokens
+print(usage_callback.prompt_tokens)     # Input tokens
+print(usage_callback.completion_tokens) # Output tokens
+print(usage_callback.total_cost)        # Estimated cost
+```
+
+## Error Handling
+
+```python
+async def invoke_with_fallback(
+    llm_chain: List[BaseChatModel],
+    messages: Sequence[BaseMessage],
+    config: Optional[RunnableConfig] = None,
+) -> BaseMessage:
+    """
+    Invoke LLMs in sequence until one succeeds.
+    
+    Tries each LLM in chain, falling back on failure.
+    """
+    last_error: Optional[Exception] = None
+    
+    for i, llm in enumerate(llm_chain):
+        try:
+            return await llm.ainvoke(messages, config=config)
+        except Exception as e:
+            provider_name = type(llm).__name__
+            last_error = e
+            if i < len(llm_chain) - 1:
+                logger.warning(
+                    f"LLM {provider_name} failed, falling back to next provider: {e}"
+                )
+            else:
+                logger.error(f"All LLM providers failed. Last error: {e}")
+    
+    raise RuntimeError(f"All LLM providers failed. Last error: {last_error}")
+```
+
+## Provider Registration
+
+Providers are registered at startup:
+
+```python
+# Location: apps/api/app/agents/llm/client.py:282
+def register_llm_providers():
+    """Register LLM providers in the lazy loader."""
+    init_openai_llm()
+    init_gemini_llm()
+    init_openrouter_llm()
+
+# Called during app lifespan
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    register_llm_providers()
+    build_graphs()
+    yield
+```
+
+## Lazy Loading Pattern
+
+Providers use lazy initialization:
+
+```python
+from app.core.lazy_loader import lazy_provider, MissingKeyStrategy
+
+@lazy_provider(
+    name="openai_llm",
+    required_keys=[settings.OPENAI_API_KEY],
+    strategy=MissingKeyStrategy.WARN,
+    warning_message="OpenAI API key not configured. OpenAI models will not work.",
+)
+def init_openai_llm():
+    # Only initialized when accessed
+    return ChatOpenAI(...)
+
+# Provider not created until first use
+llm = providers.get("openai_llm")  # Triggers initialization
+```
+
+**Benefits:**
+- Faster startup (no unnecessary initializations)
+- Conditional loading (only create if API key exists)
+- Error isolation (failed provider doesn't crash app)
+
+## Best Practices
+
+### 1. Use Free LLM for Non-Critical Tasks
+
+```python
+# Good: Use free LLM for auxiliary tasks
+follow_up_llm = init_llm(use_free=True)
+follow_ups = await follow_up_llm.ainvoke([HumanMessage(content="...")])  
+
+# Avoid: Using primary LLM for everything
+primary_llm = init_llm()
+follow_ups = await primary_llm.ainvoke(...)  # Wastes tokens
+```
+
+### 2. Enable Fallback for Production
+
+```python
+# Good: Fallback enabled
+llm = init_llm(preferred_provider="openai", fallback_enabled=True)
+
+# Risky: No fallback
+llm = init_llm(preferred_provider="openai", fallback_enabled=False)
+# Fails completely if OpenAI is down
+```
+
+### 3. Track Token Usage
+
+```python
+# Good: Monitor usage
+usage_callback = UsageMetadataCallbackHandler()
+config = {"callbacks": [usage_callback]}
+response = await llm.ainvoke(messages, config=config)
+log_usage(usage_callback.total_tokens, usage_callback.total_cost)
+
+# Avoid: Unmonitored usage
+await llm.ainvoke(messages)  # No visibility into costs
+```
+
+<Note>
+The free LLM uses Gemini 2.0 Flash via OpenRouter with automatic fallback models. It's ideal for tasks like follow-up generation where latency and cost matter more than absolute quality.
+</Note>
+
+## Next Steps
+
+- [LLM Prompts](/agents/llm/prompts) - System prompt templates
+- [Memory Integration](/agents/llm/memory-integration) - Memory in context
+- [State Management](/agents/state-management) - Agent state schemas

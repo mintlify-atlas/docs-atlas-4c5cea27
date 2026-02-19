@@ -1,0 +1,465 @@
+---
+title: Testing LangGraph Agents
+description: Comprehensive testing strategies for agents, tools, and workflows in GAIA
+---
+
+Testing ensures your agents behave correctly and reliably. This guide covers unit testing, integration testing, and evaluation strategies.
+
+## Testing Setup
+
+GAIA uses pytest for testing:
+
+```bash
+# Run all tests
+cd apps/api && uv run pytest
+
+# Run specific test file
+uv run pytest tests/test_agents.py
+
+# Run with coverage
+uv run pytest --cov=app/agents
+
+# Run specific test
+uv run pytest tests/test_agents.py::test_create_todo
+```
+
+## Project Structure
+
+```
+apps/api/
+├── app/
+│   └── agents/
+│       ├── core/
+│       ├── tools/
+│       └── prompts/
+└── tests/
+    ├── conftest.py
+    ├── test_agents.py
+    ├── test_tools.py
+    └── test_prompts.py
+```
+
+## Unit Testing Tools
+
+### Basic Tool Test
+
+```python
+import pytest
+from langchain_core.runnables.config import RunnableConfig
+from app.agents.tools.weather_tool import get_weather
+
+@pytest.mark.asyncio
+async def test_get_weather():
+    """Test weather tool returns valid data."""
+    config = RunnableConfig(
+        configurable={"user_id": "test-user-123"}
+    )
+
+    result = await get_weather(config, location="London,UK")
+
+    assert isinstance(result, (dict, str))
+    assert "London" in str(result)
+```
+
+### Tool with Mocked Service
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+from app.agents.tools.todo_tool import create_todo
+from app.models.todo_models import Priority
+
+@pytest.mark.asyncio
+async def test_create_todo_success():
+    """Test creating a todo with mocked service."""
+    config = RunnableConfig(
+        configurable={"user_id": "test-user"}
+    )
+
+    mock_todo = {
+        "id": "todo-123",
+        "title": "Test Task",
+        "completed": False,
+    }
+
+    with patch(
+        "app.agents.tools.todo_tool.create_todo_service",
+        new=AsyncMock(return_value={"todo": mock_todo}),
+    ):
+        result = await create_todo(
+            config,
+            title="Test Task",
+            description="Test description",
+            priority="high",
+        )
+
+    assert result["success"] is True
+    assert result["todo"]["title"] == "Test Task"
+
+@pytest.mark.asyncio
+async def test_create_todo_no_auth():
+    """Test todo creation without authentication."""
+    config = RunnableConfig(configurable={})
+
+    result = await create_todo(config, title="Test Task")
+
+    assert "error" in result
+    assert "authentication" in result["error"].lower()
+```
+
+## Integration Testing Agents
+
+### Test Agent Execution
+
+```python
+import pytest
+from datetime import datetime
+from app.agents.core.agent import call_agent_silent
+from app.models.message_models import MessageRequestWithHistory
+
+@pytest.mark.asyncio
+async def test_agent_creates_todo():
+    """Test agent can create todo from natural language."""
+    request = MessageRequestWithHistory(
+        message="Remind me to buy groceries tomorrow at 5pm",
+        messages=[],
+        fileData=[],
+        fileIds=[],
+    )
+
+    user = {
+        "user_id": "test-user-123",
+        "email": "test@example.com",
+        "name": "Test User",
+    }
+
+    response, tool_data = await call_agent_silent(
+        request=request,
+        conversation_id="test-conv-123",
+        user=user,
+        user_time=datetime.now(),
+    )
+
+    # Verify response
+    assert "groceries" in response.lower()
+    assert "tomorrow" in response.lower()
+
+    # Verify tool usage
+    assert "create_todo" in tool_data
+```
+
+### Test Streaming Agent
+
+```python
+import pytest
+from app.agents.core.agent import call_agent
+
+@pytest.mark.asyncio
+async def test_agent_streaming():
+    """Test agent streams responses."""
+    request = MessageRequestWithHistory(
+        message="What's the weather like?",
+        messages=[],
+    )
+
+    user = {"user_id": "test", "name": "Test"}
+
+    generator = await call_agent(
+        request=request,
+        conversation_id="test-conv",
+        user=user,
+        user_time=datetime.now(),
+    )
+
+    chunks = []
+    async for chunk in generator:
+        chunks.append(chunk)
+
+    # Verify streaming
+    assert len(chunks) > 0
+    assert any("data:" in chunk for chunk in chunks)
+```
+
+## Testing Prompts
+
+### Test Prompt Formatting
+
+```python
+import pytest
+from app.agents.prompts.my_agent_prompts import build_my_agent_prompt
+
+def test_prompt_includes_context():
+    """Test prompt includes all dynamic context."""
+    prompt = build_my_agent_prompt(
+        current_datetime="2026-02-19T10:00:00",
+        user_timezone="America/New_York",
+        memories=["User prefers morning meetings"],
+        user_name="Alice",
+    )
+
+    assert "2026-02-19" in prompt
+    assert "America/New_York" in prompt
+    assert "morning meetings" in prompt
+    assert "Alice" in prompt
+```
+
+### Test Prompt Behavior
+
+```python
+@pytest.mark.asyncio
+async def test_prompt_tone_matching():
+    """Test agent matches user's communication style."""
+    casual_request = MessageRequestWithHistory(
+        message="hey can u help me out?",
+        messages=[],
+    )
+
+    response, _ = await call_agent_silent(
+        request=casual_request,
+        conversation_id="test",
+        user={"user_id": "test", "name": "Test"},
+        user_time=datetime.now(),
+    )
+
+    # Verify casual tone
+    assert not response.istitle()  # Not formal
+    assert len(response.split()) < 50  # Concise
+```
+
+## Testing Graph Nodes
+
+### Test Pre-Model Hook
+
+```python
+import pytest
+from app.agents.core.nodes.trim_messages_node import trim_messages_node
+from app.agents.core.state import State
+from langchain_core.messages import HumanMessage, AIMessage
+
+@pytest.mark.asyncio
+async def test_trim_messages_node():
+    """Test message trimming keeps recent messages."""
+    state = State(
+        messages=[
+            HumanMessage(content=f"Message {i}")
+            for i in range(100)
+        ]
+    )
+
+    config = RunnableConfig(configurable={})
+
+    result = await trim_messages_node(state, config)
+
+    # Verify trimming
+    assert len(result["messages"]) < 100
+    assert "Message 99" in result["messages"][-1].content
+```
+
+### Test End-Graph Hook
+
+```python
+@pytest.mark.asyncio
+async def test_follow_up_actions_node():
+    """Test follow-up actions are suggested."""
+    from app.agents.core.nodes.follow_up_actions_node import (
+        follow_up_actions_node
+    )
+
+    state = State(
+        messages=[
+            HumanMessage(content="I need to plan a trip"),
+            AIMessage(content="I can help with that"),
+        ]
+    )
+
+    config = RunnableConfig(configurable={})
+
+    result = await follow_up_actions_node(state, config)
+
+    # Verify suggestions present
+    assert "follow_up_actions" in result
+```
+
+## Fixtures
+
+Create reusable test fixtures in `conftest.py`:
+
+```python
+import pytest
+from datetime import datetime
+from langchain_core.runnables.config import RunnableConfig
+
+@pytest.fixture
+def test_user():
+    """Provide a test user."""
+    return {
+        "user_id": "test-user-123",
+        "email": "test@example.com",
+        "name": "Test User",
+    }
+
+@pytest.fixture
+def test_config(test_user):
+    """Provide a test RunnableConfig."""
+    return RunnableConfig(
+        configurable={
+            "user_id": test_user["user_id"],
+            "user_name": test_user["name"],
+            "user_time": datetime.now(),
+        }
+    )
+
+@pytest.fixture
+def mock_request():
+    """Provide a mock message request."""
+    from app.models.message_models import MessageRequestWithHistory
+
+    return MessageRequestWithHistory(
+        message="Test message",
+        messages=[],
+        fileData=[],
+        fileIds=[],
+    )
+```
+
+## Mocking External Services
+
+### Mock Database Calls
+
+```python
+import pytest
+from unittest.mock import AsyncMock, patch
+
+@pytest.mark.asyncio
+async def test_tool_with_database():
+    """Test tool with mocked database."""
+    with patch(
+        "app.services.todos.todo_service.get_all_todos_service",
+        new=AsyncMock(return_value={
+            "todos": [{"id": "1", "title": "Test"}]
+        }),
+    ):
+        result = await my_tool_that_uses_db(config, param="test")
+
+    assert result["success"] is True
+```
+
+### Mock LLM Calls
+
+```python
+from unittest.mock import MagicMock
+
+@pytest.fixture
+def mock_llm():
+    """Mock LLM for testing."""
+    llm = MagicMock()
+    llm.ainvoke = AsyncMock(
+        return_value=AIMessage(content="Mocked response")
+    )
+    return llm
+
+@pytest.mark.asyncio
+async def test_agent_with_mock_llm(mock_llm):
+    """Test agent with mocked LLM."""
+    with patch("app.agents.llm.client.init_llm", return_value=mock_llm):
+        # Test agent logic
+        pass
+```
+
+## Performance Testing
+
+```python
+import pytest
+import time
+
+@pytest.mark.asyncio
+async def test_agent_response_time():
+    """Test agent responds within acceptable time."""
+    request = MessageRequestWithHistory(
+        message="Quick question",
+        messages=[],
+    )
+
+    start = time.time()
+    response, _ = await call_agent_silent(
+        request=request,
+        conversation_id="test",
+        user={"user_id": "test", "name": "Test"},
+        user_time=datetime.now(),
+    )
+    duration = time.time() - start
+
+    assert duration < 5.0  # Response within 5 seconds
+```
+
+## Test Coverage
+
+Run tests with coverage reporting:
+
+```bash
+# Generate coverage report
+cd apps/api
+uv run pytest --cov=app/agents --cov-report=html
+
+# View report
+open htmlcov/index.html
+```
+
+<Warning>
+**Testing Best Practices**:
+- Test both success and failure paths
+- Mock external dependencies (databases, APIs)
+- Use fixtures for common test data
+- Test edge cases and invalid inputs
+- Verify tool calls and responses
+- Check error handling and logging
+- Run tests in CI/CD pipeline
+- Maintain >80% code coverage
+</Warning>
+
+## Continuous Integration
+
+Tests run automatically on PR:
+
+```yaml
+# .github/workflows/test.yml
+name: Test Suite
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd apps/api
+          pip install uv
+          uv sync
+
+      - name: Run tests
+        run: |
+          cd apps/api
+          uv run pytest --cov=app --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Contributing" icon="code-pull-request" href="/developers/contributing">
+    Learn how to contribute your changes
+  </Card>
+  <Card title="Code Style" icon="paintbrush" href="/developers/code-style">
+    Follow GAIA's code style guidelines
+  </Card>
+</CardGroup>

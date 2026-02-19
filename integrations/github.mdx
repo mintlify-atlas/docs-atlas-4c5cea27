@@ -1,0 +1,394 @@
+---
+title: GitHub Integration  
+description: Manage repositories, issues, pull requests, and automate your development workflow
+---
+
+The GitHub integration allows GAIA to interact with your repositories, manage issues, review pull requests, and automate development workflows. Let AI assist with your entire software development lifecycle.
+
+## Features
+
+- **Repository Management**: Create, update, and manage repositories
+- **Issue Tracking**: Create, update, and search issues
+- **Pull Request Management**: Review, comment, and merge PRs
+- **Branch Operations**: Create and manage branches
+- **Code Review**: Comment on code and suggest changes
+- **Actions & CI/CD**: Monitor GitHub Actions workflows
+- **Collaboration**: Manage collaborators and teams
+- **Release Management**: Create and manage releases
+
+## Setup
+
+<Steps>
+  <Step title="Open Integrations">
+    Navigate to **Settings > Integrations** in GAIA
+  </Step>
+  <Step title="Find GitHub">
+    Search for "GitHub" in the Developer category
+  </Step>
+  <Step title="Connect Account">
+    Click **Connect** to start OAuth flow
+  </Step>
+  <Step title="Authorize Access">
+    Sign in to GitHub and authorize GAIA
+  </Step>
+  <Step title="Select Repositories">
+    Choose which repositories GAIA can access (or select "All repositories")
+  </Step>
+  <Step title="Complete Setup">
+    Click "Authorize" to complete the connection
+  </Step>
+</Steps>
+
+<Warning>
+  GitHub requires you to explicitly grant access to repositories. You can modify repository access anytime in GitHub Settings > Applications.
+</Warning>
+
+## OAuth Configuration
+
+The GitHub integration uses OAuth 2.0:
+
+- **Provider**: Composio  
+- **Toolkit**: GITHUB
+- **Auth Type**: OAuth 2.0
+- **Featured**: Yes
+- **Managed By**: Composio platform
+
+## Usage Examples
+
+### Creating Issues
+
+```
+You: Create an issue in myrepo: "Add dark mode support"
+
+GAIA: I'll create that issue for you.
+
+✓ Created issue #42: "Add dark mode support"
+  Repository: username/myrepo
+  Status: Open
+  URL: github.com/username/myrepo/issues/42
+```
+
+### Managing Pull Requests
+
+```
+You: Show me open pull requests in myrepo
+
+GAIA: Found 3 open pull requests:
+
+1. #38: Add user authentication (by @john) - 2 days ago
+   📝 3 comments, ✅ Checks passing
+
+2. #40: Fix API timeout issue (by @sarah) - 1 day ago  
+   📝 1 comment, ⏳ Checks running
+
+3. #41: Update dependencies (by @dependabot) - 3 hours ago
+   ✅ Checks passing, ready to merge
+```
+
+### Code Review
+
+```
+You: Review PR #40 in myrepo
+
+GAIA: Reviewing pull request #40...
+
+📝 PR Summary:
+  Title: Fix API timeout issue
+  Author: @sarah
+  Changes: +45 -12 lines across 3 files
+  
+✅ Positive aspects:
+  - Good error handling added
+  - Tests included
+  
+⚠️ Suggestions:
+  - Consider adding timeout constant
+  - Update API documentation
+  
+Shall I post these comments to the PR?
+```
+
+### Branch Management
+
+```
+You: Create a new branch called "feature/dark-mode" in myrepo
+
+GAIA: Created new branch:
+
+✓ Branch: feature/dark-mode
+  Repository: username/myrepo
+  Based on: main
+```
+
+### Repository Insights
+
+```
+You: What's the status of myrepo?
+
+GAIA: Repository Status:
+
+⭐ Stars: 142 (+5 this week)
+🍴 Forks: 23
+👁️ Watchers: 18
+
+📊 Activity:
+  - 3 open issues
+  - 2 open pull requests  
+  - Last commit: 2 hours ago
+  - Main language: TypeScript (78%)
+
+🔥 Recent activity:
+  - 12 commits this week
+  - 3 contributors active
+```
+
+## Available Actions
+
+The GitHub agent can perform:
+
+- Get authenticated user info
+- List and search repositories
+- Create and update issues
+- Manage pull requests
+- Review code changes
+- Create and manage branches
+- Merge pull requests
+- Add comments and reactions
+- Manage collaborators
+- Create releases
+- Monitor GitHub Actions
+- Search code and commits
+- Manage repository settings
+
+## Workflows & Triggers
+
+GitHub supports comprehensive automation triggers:
+
+### Commit Event Trigger
+
+**Trigger**: When a new commit is pushed
+
+**Configuration**:
+```yaml
+trigger: github_commit_event
+config:
+  owner: "username"
+  repo: "myrepo"
+```
+
+**Use Cases**:
+- Notify team of commits
+- Trigger builds
+- Update project tracking
+- Log commit history
+
+### Pull Request Event Trigger
+
+**Trigger**: When a PR is opened, closed, or synchronized
+
+**Configuration**:
+```yaml
+trigger: github_pr_event
+config:
+  owner: "username"
+  repo: "myrepo"
+```
+
+**Use Cases**:
+- Auto-review PRs
+- Notify reviewers
+- Update Linear issues
+- Post to Slack
+
+### Star Added Trigger
+
+**Trigger**: When someone stars your repository
+
+**Configuration**:
+```yaml
+trigger: github_star_added
+config:
+  owner: "username"
+  repo: "myrepo"
+```
+
+**Use Cases**:
+- Thank new stargazers
+- Track repository popularity
+- Send notifications
+
+### Issue Added Trigger
+
+**Trigger**: When a new issue is created
+
+**Configuration**:
+```yaml
+trigger: github_issue_added
+config:
+  owner: "username"
+  repo: "myrepo"
+```
+
+**Use Cases**:
+- Auto-label issues
+- Notify maintainers
+- Create Linear tasks
+- Triage automation
+
+## AI Agent Details
+
+GitHub uses a specialized subagent:
+
+- **Agent Name**: `github_agent`
+- **Domain**: Code repository and development workflow
+- **Capabilities**:
+  - Understanding code context
+  - Reviewing pull requests
+  - Managing development workflows
+  - Automating repetitive tasks
+  - Repository maintenance
+  - Team coordination
+
+### Agent Intelligence
+
+The GitHub agent can:
+- Analyze code changes
+- Suggest code improvements
+- Understand git workflows
+- Generate commit messages
+- Detect common issues
+- Follow repository conventions
+
+## API Reference
+
+Key tools available:
+
+| Tool | Description |
+|------|-------------|
+| `GITHUB_GET_THE_AUTHENTICATED_USER` | Get user info |
+| `GITHUB_CREATE_AN_ISSUE` | Create new issue |
+| `GITHUB_UPDATE_AN_ISSUE` | Update issue |
+| `GITHUB_LIST_REPOSITORY_ISSUES` | List issues |
+| `GITHUB_CREATE_A_PULL_REQUEST` | Create PR |
+| `GITHUB_LIST_PULL_REQUESTS` | List PRs |
+| `GITHUB_MERGE_A_PULL_REQUEST` | Merge PR |
+| `GITHUB_CREATE_A_COMMIT_COMMENT` | Comment on commit |
+| `GITHUB_CREATE_A_REFERENCE` | Create branch |
+| `GITHUB_CREATE_A_RELEASE` | Create release |
+| `GITHUB_GET_A_REPOSITORY` | Get repo details |
+| `GITHUB_SEARCH_CODE` | Search code |
+
+For complete API documentation, see [GitHub Tools Reference](/api-reference/integrations/github).
+
+## Metadata Extraction
+
+GAIA automatically extracts your GitHub username:
+
+```json
+{
+  "username": "your-github-username"
+}
+```
+
+This enables:
+- Repository filtering
+- User attribution  
+- Personalized workflows
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Repository access denied">
+    Check that you granted GAIA access to the specific repository during OAuth. Update permissions in GitHub Settings > Applications.
+  </Accordion>
+  
+  <Accordion title="Can't merge pull request">
+    Verify you have merge permissions and all required checks have passed. Some repositories require admin approval.
+  </Accordion>
+  
+  <Accordion title="Actions workflow not triggering">
+    Ensure the workflow file is properly configured and the event trigger matches your setup.
+  </Accordion>
+  
+  <Accordion title="Rate limit errors">
+    GitHub has API rate limits (5,000 requests/hour for authenticated users). GAIA handles rate limiting automatically.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+  Use descriptive issue titles and PR descriptions to help GAIA understand context better.
+</Tip>
+
+<Tip>
+  Link related issues and PRs using GitHub's syntax: "Closes #42" or "Related to #38".
+</Tip>
+
+<Warning>
+  Be careful with force push operations. GAIA will warn you before executing destructive actions.
+</Warning>
+
+## Advanced Usage
+
+### Automated Code Review
+
+```
+You: Set up automatic code review for all PRs in myrepo
+
+GAIA: I'll create an automated code review workflow:
+
+✓ Workflow created: PR Auto-Review
+  Trigger: New pull request
+  Actions:
+    - Review code changes
+    - Check for common issues
+    - Post review comments
+    - Approve if all checks pass
+```
+
+### Issue Triage
+
+```
+You: Label all new issues mentioning "bug" as "bug" and assign to @john
+
+GAIA: Setting up issue triage automation...
+
+✓ Triage rule created
+  Trigger: New issue with "bug"
+  Actions:
+    - Add label: "bug"
+    - Assign to: @john
+    - Set priority: High
+```
+
+### Release Automation
+
+```
+You: Create a new release v1.2.0 with the changelog from recent commits
+
+GAIA: Creating release v1.2.0...
+
+✓ Generated changelog (15 commits)
+✓ Created release v1.2.0
+  Tag: v1.2.0
+  Branch: main
+  Assets: Ready for upload
+```
+
+## Related Integrations
+
+- [Linear](/integrations/linear) - Sync GitHub issues with Linear
+- [Slack](/integrations/slack) - Send GitHub updates to Slack
+- [Notion](/integrations/notion) - Document GitHub workflows
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="GitHub Workflows" icon="diagram-project" href="/workflows/github">
+    Automate your development workflow
+  </Card>
+  <Card title="CI/CD Integration" icon="rocket" href="/guides/github-cicd">
+    Set up continuous integration
+  </Card>
+</CardGroup>

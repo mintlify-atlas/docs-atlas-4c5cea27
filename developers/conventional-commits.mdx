@@ -1,0 +1,511 @@
+---
+title: Conventional Commits
+description: Commit message format and conventions for GAIA development
+---
+
+GAIA follows the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages and PR titles.
+
+## Format
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Type
+
+The commit type **must** be one of the following:
+
+<AccordionGroup>
+  <Accordion title="feat - New Features">
+    A new feature for the user or a particular part of the application.
+
+    ```bash
+    feat(agents): add weather forecast tool
+    feat(api): implement calendar event sync
+    feat(web): add dark mode toggle
+    ```
+  </Accordion>
+
+  <Accordion title="fix - Bug Fixes">
+    A bug fix that resolves an issue.
+
+    ```bash
+    fix(api): resolve todo creation race condition
+    fix(web): correct timezone display in calendar
+    fix(agents): handle empty response from LLM
+    ```
+  </Accordion>
+
+  <Accordion title="docs - Documentation">
+    Documentation only changes.
+
+    ```bash
+    docs: update agent development guide
+    docs(api): add authentication examples
+    docs: fix typo in contributing guide
+    ```
+  </Accordion>
+
+  <Accordion title="style - Code Style">
+    Changes that don't affect code meaning (formatting, missing semicolons, etc.).
+
+    ```bash
+    style: fix linting issues in todo tool
+    style(web): format with Biome
+    style: remove trailing whitespace
+    ```
+  </Accordion>
+
+  <Accordion title="refactor - Code Refactoring">
+    Code change that neither fixes a bug nor adds a feature.
+
+    ```bash
+    refactor(agents): simplify tool registry logic
+    refactor(api): extract user service functions
+    refactor: consolidate error handling
+    ```
+  </Accordion>
+
+  <Accordion title="test - Testing">
+    Adding missing tests or correcting existing tests.
+
+    ```bash
+    test(agents): add integration tests for comms agent
+    test: improve todo tool test coverage
+    test(api): add edge case tests for calendar sync
+    ```
+  </Accordion>
+
+  <Accordion title="chore - Maintenance">
+    Changes to build process, dependencies, or auxiliary tools.
+
+    ```bash
+    chore: update dependencies
+    chore(api): bump fastapi to 0.115.6
+    chore: clean up unused imports
+    ```
+  </Accordion>
+
+  <Accordion title="ci - CI/CD">
+    Changes to CI/CD configuration files and scripts.
+
+    ```bash
+    ci: add code coverage reporting
+    ci: update GitHub Actions workflow
+    ci: configure pre-commit hooks
+    ```
+  </Accordion>
+
+  <Accordion title="build - Build System">
+    Changes affecting build system or external dependencies.
+
+    ```bash
+    build: update Nx to version 20
+    build(api): configure Docker multi-stage build
+    build: optimize production bundle size
+    ```
+  </Accordion>
+
+  <Accordion title="perf - Performance">
+    Code changes that improve performance.
+
+    ```bash
+    perf(api): optimize database queries
+    perf(agents): reduce memory usage in tool registry
+    perf(web): lazy load todo list components
+    ```
+  </Accordion>
+
+  <Accordion title="revert - Revert Changes">
+    Reverts a previous commit.
+
+    ```bash
+    revert: feat(agents): add weather forecast tool
+
+    This reverts commit abc123.
+    ```
+  </Accordion>
+
+  <Accordion title="Other Types">
+    Additional types used in GAIA:
+
+    - `deps` - Dependency updates
+    - `infra` - Infrastructure changes
+    - `security` - Security fixes
+    - `env` - Environment configuration
+    - `i18n` - Internationalization
+    - `ux` - User experience improvements
+    - `config` - Configuration changes
+    - `assets` - Asset updates
+    - `meta` - Meta changes
+    - `release` - Release commits
+  </Accordion>
+</AccordionGroup>
+
+### Scope
+
+The scope is **optional** but recommended. It provides context about what part of the codebase is affected.
+
+**Common scopes**:
+
+- `agents` - Agent system
+- `tools` - Agent tools
+- `api` - Backend API
+- `web` - Web application
+- `desktop` - Desktop application
+- `mobile` - Mobile application
+- `db` - Database
+- `auth` - Authentication
+- `integrations` - Third-party integrations
+
+### Description
+
+The description is a short summary of the change:
+
+- Use imperative, present tense: "add" not "added" nor "adds"
+- Don't capitalize first letter
+- No period (.) at the end
+- Keep it concise (under 72 characters)
+
+**Good examples**:
+```
+add weather forecast tool
+fix todo creation race condition
+update agent development guide
+```
+
+**Bad examples**:
+```
+Added weather forecast tool.  # Capitalized and has period
+Fixed a bug                   # Not specific enough
+Updates                       # Too vague
+```
+
+## Body
+
+The body is **optional** but recommended for complex changes:
+
+- Explain **what** and **why**, not **how**
+- Use bullet points for multiple changes
+- Wrap at 72 characters
+- Separate from description with blank line
+
+**Example**:
+```
+feat(agents): add weather forecast tool
+
+Add 5-day weather forecast capability:
+- Extended API integration
+- Added forecast data structures  
+- Updated tool documentation
+
+This enables users to plan activities based on upcoming weather.
+```
+
+## Footer
+
+The footer is **optional** and used for:
+
+### Breaking Changes
+
+```
+feat(api)!: change authentication flow
+
+BREAKING CHANGE: Auth tokens now expire after 1 hour instead of 24 hours.
+Update client applications to refresh tokens more frequently.
+```
+
+### Issue References
+
+```
+fix(api): resolve todo creation race condition
+
+Closes #123
+References #456, #789
+```
+
+### Co-authors
+
+```
+feat(agents): add weather forecast tool
+
+Co-authored-by: Alice <alice@example.com>
+Co-authored-by: Bob <bob@example.com>
+```
+
+## Examples
+
+### Simple Commit
+
+```bash
+git commit -m "fix(api): resolve todo creation race condition"
+```
+
+### Commit with Body
+
+```bash
+git commit -m "feat(agents): add weather forecast tool
+
+Add 5-day weather forecast capability:
+- Extended API integration
+- Added forecast data structures
+- Updated tool documentation
+
+Closes #234"
+```
+
+### Breaking Change
+
+```bash
+git commit -m "feat(api)!: change authentication flow
+
+BREAKING CHANGE: Auth tokens now expire after 1 hour.
+Update client applications to refresh tokens frequently.
+
+Closes #345"
+```
+
+### Multiple Changes
+
+```bash
+git commit -m "refactor(agents): improve tool registry
+
+- Simplify tool registration logic
+- Add lazy loading for dynamic tools
+- Improve error handling
+- Update tests and documentation
+
+This refactoring reduces memory usage by 30% and improves
+startup time by deferring tool initialization."
+```
+
+## Real Examples from GAIA
+
+### Feature Addition
+
+```
+feat(agents): add memory search tool
+
+Implement semantic search across conversation history:
+- Add search_memory tool with embedding support
+- Integrate with ChromaDB for vector search
+- Add rate limiting and caching
+- Include comprehensive tests
+
+Enables agents to reference past conversations for context.
+
+Closes #456
+```
+
+### Bug Fix
+
+```
+fix(api): prevent duplicate todo creation
+
+Add transaction locking to prevent race conditions when
+creating todos from parallel requests.
+
+Fixes #123
+```
+
+### Performance Improvement
+
+```
+perf(agents): optimize tool retrieval
+
+Implement caching layer for tool registry:
+- Cache tool definitions in Redis
+- Add cache invalidation on updates
+- Reduce database queries by 80%
+
+Improves agent response time by 200ms on average.
+```
+
+### Documentation
+
+```
+docs: add agent development guide
+
+Create comprehensive guide covering:
+- Agent architecture and patterns
+- Tool creation with examples
+- Prompt engineering best practices
+- Testing strategies
+```
+
+## Commit Message Tips
+
+<Steps>
+  <Step title="Write Clear Descriptions">
+    Make the one-line description informative enough to understand the change without reading the body.
+  </Step>
+
+  <Step title="Explain Why, Not How">
+    The diff shows how you changed the code. The commit message should explain why.
+  </Step>
+
+  <Step title="Use Present Tense">
+    Write as if giving commands: "add feature" not "added feature".
+  </Step>
+
+  <Step title="Reference Issues">
+    Always reference related issues using `Closes #123` or `References #456`.
+  </Step>
+
+  <Step title="Break Down Large Changes">
+    Multiple logical changes should be separate commits, not one large commit.
+  </Step>
+</Steps>
+
+<Warning>
+**Common Mistakes to Avoid**:
+- Vague descriptions ("fix bug", "update code")
+- Missing type or scope
+- Capitalizing description
+- Period at end of description
+- Mixing multiple unrelated changes
+- Not referencing issues
+</Warning>
+
+## Commit Message Template
+
+Create a git commit template:
+
+```bash
+# ~/.gitmessage
+type(scope): description
+
+# Body: Explain what and why (not how)
+# - Bullet points are fine
+# - Wrap at 72 characters
+
+# Footer: Reference issues and breaking changes
+# Closes #123
+# BREAKING CHANGE: description
+
+# Types: feat, fix, docs, style, refactor, test, chore, ci, build, perf, revert
+# Scopes: agents, tools, api, web, desktop, mobile, db, auth, integrations
+```
+
+Configure git to use it:
+
+```bash
+git config --global commit.template ~/.gitmessage
+```
+
+## Validation
+
+GAIA validates commit messages and PR titles automatically:
+
+### PR Title Validation
+
+GitHub Actions validates PR titles (`.github/workflows/pr-naming-conventions.yml`):
+
+```yaml
+- name: Validate PR title
+  uses: amannn/action-semantic-pull-request@v5.5.3
+  with:
+    types: |
+      feat
+      fix
+      docs
+      style
+      refactor
+      test
+      chore
+      ci
+      build
+      revert
+      perf
+      release
+      deps
+      infra
+      security
+```
+
+### Pre-commit Hooks
+
+Optionally add commitlint to pre-commit hooks:
+
+```yaml
+# .pre-commit-config.yaml
+- repo: https://github.com/commitizen-tools/commitizen
+  rev: v3.28.0
+  hooks:
+    - id: commitizen
+      stages: [commit-msg]
+```
+
+## Tools
+
+### Commitizen
+
+Interactive commit message builder:
+
+```bash
+# Install
+pip install commitizen
+
+# Use interactive prompt
+cz commit
+
+# Or use CLI
+cz commit --fix --scope api --message "resolve todo race condition"
+```
+
+### Git Commit Editor
+
+Use your editor for multi-line commits:
+
+```bash
+# Configure editor
+git config --global core.editor "vim"
+
+# Commit without -m flag
+git add .
+git commit
+# Editor opens for message
+```
+
+## Benefits
+
+Following conventional commits provides:
+
+<CardGroup cols={2}>
+  <Card title="Automated Changelogs" icon="list">
+    Generate changelogs automatically from commit history.
+  </Card>
+  <Card title="Semantic Versioning" icon="tags">
+    Determine version bumps based on commit types.
+  </Card>
+  <Card title="Better Git History" icon="clock-rotate-left">
+    Easy to understand project history at a glance.
+  </Card>
+  <Card title="Automated Releases" icon="rocket">
+    Trigger releases automatically based on commits.
+  </Card>
+</CardGroup>
+
+## Resources
+
+- [Conventional Commits Specification](https://www.conventionalcommits.org/)
+- [Angular Convention](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#commit)
+- [Commitizen](https://commitizen-tools.github.io/commitizen/)
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Contributing" icon="code-pull-request" href="/developers/contributing">
+    Full contribution workflow
+  </Card>
+  <Card title="Pull Requests" icon="git-pull-request" href="/developers/pull-requests">
+    PR requirements and process
+  </Card>
+  <Card title="Code Style" icon="paintbrush" href="/developers/code-style">
+    Code formatting guidelines
+  </Card>
+</CardGroup>

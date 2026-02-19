@@ -1,0 +1,562 @@
+---
+title: Code Style Guidelines
+description: Code formatting, linting, and style conventions for GAIA development
+---
+
+GAIA follows strict code style guidelines to maintain consistency and quality across the codebase.
+
+## Overview
+
+<CardGroup cols={2}>
+  <Card title="TypeScript/JavaScript" icon="js">
+    **Biome** for linting and formatting
+  </Card>
+  <Card title="Python" icon="python">
+    **Ruff** for linting and formatting, **mypy** for type checking
+  </Card>
+</CardGroup>
+
+## TypeScript/JavaScript Style
+
+GAIA uses [Biome](https://biomejs.dev/) instead of ESLint + Prettier for faster, unified tooling.
+
+### Configuration
+
+`biome.json` at repository root:
+
+```json
+{
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80,
+    "lineEnding": "lf"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noExplicitAny": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  }
+}
+```
+
+### Running Biome
+
+```bash
+# Check formatting
+nx run-many -t format:check
+
+# Format code
+nx format web
+
+# Lint
+nx lint web
+
+# Lint and fix
+nx run web:lint --fix
+```
+
+### Key Rules
+
+<AccordionGroup>
+  <Accordion title="No Explicit Any">
+    **Never use `any` type** - Always provide proper type definitions
+
+    ```typescript
+    // Bad
+    function processData(data: any): any {
+      return data.value;
+    }
+
+    // Good
+    interface DataInput {
+      value: string;
+    }
+
+    function processData(data: DataInput): string {
+      return data.value;
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="No Inline Imports">
+    **All imports at the top** - No inline or conditional imports
+
+    ```typescript
+    // Bad
+    function myFunction() {
+      const { something } = require('./module');
+    }
+
+    // Good
+    import { something } from './module';
+
+    function myFunction() {
+      // Use something
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Line Width 80">
+    **Maximum 80 characters per line** - Improves readability
+
+    ```typescript
+    // Bad
+    const result = await performComplexOperation(param1, param2, param3, param4, param5);
+
+    // Good
+    const result = await performComplexOperation(
+      param1,
+      param2,
+      param3,
+      param4,
+      param5,
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="Import Type Hints">
+    **Use type imports** - Separate type imports from value imports
+
+    ```typescript
+    // Good
+    import type { User, TodoItem } from '@/types';
+    import { createUser, createTodo } from '@/services';
+
+    // Also acceptable
+    import { type User, createUser } from '@/services';
+    ```
+  </Accordion>
+
+  <Accordion title="Arrow Parentheses">
+    **Always use parentheses** - Even for single parameters
+
+    ```typescript
+    // Bad
+    const double = x => x * 2;
+
+    // Good
+    const double = (x) => x * 2;
+    ```
+  </Accordion>
+
+  <Accordion title="Trailing Commas">
+    **Use trailing commas** - Cleaner diffs and fewer merge conflicts
+
+    ```typescript
+    // Good
+    const user = {
+      name: "Alice",
+      email: "alice@example.com",
+      age: 25,
+    };
+
+    const items = [
+      item1,
+      item2,
+      item3,
+    ];
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### React/Next.js Conventions
+
+```typescript
+"use client";
+
+import type { FC } from "react";
+import { useState } from "react";
+
+interface TodoItemProps {
+  id: string;
+  title: string;
+  completed: boolean;
+  onToggle: (id: string) => void;
+}
+
+export const TodoItem: FC<TodoItemProps> = ({
+  id,
+  title,
+  completed,
+  onToggle,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="todo-item"
+    >
+      <input
+        type="checkbox"
+        checked={completed}
+        onChange={() => onToggle(id)}
+      />
+      <span className={completed ? "line-through" : ""}>
+        {title}
+      </span>
+    </div>
+  );
+};
+```
+
+## Python Style
+
+GAIA uses [Ruff](https://docs.astral.sh/ruff/) for both linting and formatting.
+
+### Configuration
+
+`pyproject.toml` in `apps/api/`:
+
+```toml
+[project]
+name = "gaia"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+```
+
+### Running Ruff
+
+```bash
+# Lint
+nx lint api
+
+# Lint and fix
+nx run api:lint --fix
+
+# Format
+nx format api
+
+# Type check (mypy)
+nx type-check api
+```
+
+### Key Rules
+
+<AccordionGroup>
+  <Accordion title="Type Hints Required">
+    **Always provide type annotations** - For parameters and return values
+
+    ```python
+    # Bad
+    async def create_todo(user_id, title, description=None):
+        pass
+
+    # Good
+    async def create_todo(
+        user_id: str,
+        title: str,
+        description: Optional[str] = None,
+    ) -> dict[str, Any]:
+        pass
+    ```
+  </Accordion>
+
+  <Accordion title="No Inline Imports">
+    **All imports at the top** - Grouped by standard, third-party, local
+
+    ```python
+    # Good
+    import asyncio
+    import uuid
+    from datetime import datetime
+    from typing import Optional, List
+
+    from fastapi import HTTPException
+    from langchain_core.tools import tool
+
+    from app.config.loggers import logger
+    from app.models.todo_models import TodoModel
+    from app.services.todos.todo_service import create_todo_service
+
+    # Bad
+    async def my_function():
+        from app.services import something  # Inline import
+    ```
+  </Accordion>
+
+  <Accordion title="PEP 8 Style">
+    **Follow PEP 8** - Standard Python style guide
+
+    ```python
+    # Good
+    CONSTANT_VALUE = 100
+
+    class UserService:
+        def __init__(self, user_id: str) -> None:
+            self.user_id = user_id
+
+    async def create_user(
+        name: str,
+        email: str,
+        age: Optional[int] = None,
+    ) -> dict[str, Any]:
+        pass
+    ```
+  </Accordion>
+
+  <Accordion title="Docstrings">
+    **Google-style docstrings** - For classes and public functions
+
+    ```python
+    async def create_todo(
+        user_id: str,
+        title: str,
+        due_date: Optional[datetime] = None,
+    ) -> dict[str, Any]:
+        """Create a new todo item for a user.
+
+        Args:
+            user_id: Unique identifier for the user
+            title: Title of the todo item
+            due_date: Optional due date for the todo
+
+        Returns:
+            Dictionary containing the created todo and success status
+
+        Raises:
+            ValueError: If title is empty
+            HTTPException: If user not found
+        """
+        pass
+    ```
+  </Accordion>
+
+  <Accordion title="Error Handling">
+    **Explicit error handling** - Use try-except with specific exceptions
+
+    ```python
+    # Good
+    async def get_user(user_id: str) -> dict[str, Any]:
+        try:
+            user = await user_service.get(user_id)
+            return {"success": True, "user": user}
+        except ValueError as e:
+            logger.error(f"Invalid user_id: {e}")
+            return {"error": "Invalid user ID"}
+        except HTTPException as e:
+            logger.error(f"API error: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            return {"error": "Internal server error"}
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Agent Tool Pattern
+
+```python
+from typing import Annotated, Optional
+
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
+from langgraph.config import get_stream_writer
+
+from app.config.loggers import chat_logger as logger
+from app.decorators import with_doc, with_rate_limiting
+from app.templates.docstrings.my_tool_docs import MY_TOOL_DOC
+from app.utils.chat_utils import get_user_id_from_config
+
+
+@tool
+@with_rate_limiting("my_operation")
+@with_doc(MY_TOOL_DOC)
+async def my_tool(
+    config: RunnableConfig,
+    param1: Annotated[str, "Description of param1"],
+    param2: Annotated[
+        Optional[int], "Description of optional param2"
+    ] = None,
+) -> dict[str, Any]:
+    """Brief tool description."""
+    try:
+        logger.info(f"My Tool: Processing {param1}")
+        user_id = get_user_id_from_config(config)
+
+        if not user_id:
+            return {"error": "Authentication required"}
+
+        writer = get_stream_writer()
+        writer({"progress": "Starting operation..."})
+
+        result = await perform_operation(user_id, param1, param2)
+
+        writer({"result_data": result})
+
+        return {"success": True, "data": result}
+
+    except Exception as e:
+        logger.error(f"Error in my_tool: {e}")
+        return {"error": str(e)}
+```
+
+## General Principles
+
+<CardGroup cols={2}>
+  <Card title="Self-Documenting Code" icon="file-code">
+    Code should be clear without verbose comments. Use meaningful names.
+  </Card>
+  <Card title="Feature-Based Organization" icon="folder-tree">
+    Group files by feature/domain, not by file type.
+  </Card>
+  <Card title="Absolute Imports" icon="arrow-up-right-from-square">
+    Use path aliases (`@/` for frontend, `app.` for backend).
+  </Card>
+  <Card title="Single Responsibility" icon="bullseye">
+    Each function/component should do one thing well.
+  </Card>
+</CardGroup>
+
+<Warning>
+**Critical Rules**:
+- No `any` type in TypeScript (enforced by Biome)
+- All Python functions must have type hints (enforced by mypy)
+- No inline imports in any language
+- All code must pass linting and formatting checks
+- No unnecessarily verbose comments
+</Warning>
+
+## IDE Setup
+
+### VS Code
+
+Recommended extensions and settings:
+
+```json
+// .vscode/settings.json
+{
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "quickfix.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  },
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "mypy.runUsingActiveInterpreter": true
+}
+```
+
+Install extensions:
+- Biome (biomejs.biome)
+- Ruff (charliermarsh.ruff)
+- Python (ms-python.python)
+- Mypy (matangover.mypy)
+
+## Pre-commit Hooks
+
+Install pre-commit hooks to enforce style:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install hooks
+pre-commit install
+
+# Run manually
+pre-commit run --all-files
+```
+
+Configured checks (`.pre-commit-config.yaml`):
+- YAML, JSON, TOML validation
+- Merge conflict detection
+- Large file checks
+- Python AST validation
+- Secret detection
+
+## CI/CD Checks
+
+All code must pass automated checks:
+
+```yaml
+# GitHub Actions runs:
+- Biome formatting and linting (TypeScript)
+- Ruff formatting and linting (Python)
+- mypy type checking (Python)
+- pytest test suite
+- Build verification
+```
+
+## Quick Reference
+
+### TypeScript Commands
+
+```bash
+nx lint web              # Lint Next.js app
+nx format web            # Format Next.js app
+nx type-check web        # Type check
+nx run web:lint --fix    # Fix linting issues
+```
+
+### Python Commands
+
+```bash
+nx lint api              # Lint with Ruff
+nx format api            # Format with Ruff
+nx type-check api        # Type check with mypy
+cd apps/api && uv run pytest  # Run tests
+```
+
+### All Projects
+
+```bash
+nx run-many -t lint      # Lint all projects
+nx run-many -t format    # Format all projects
+nx run-many -t type-check # Type check all
+nx run-many -t build     # Build all projects
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Contributing" icon="code-pull-request" href="/developers/contributing">
+    Learn the contribution workflow
+  </Card>
+  <Card title="Pull Requests" icon="git-pull-request" href="/developers/pull-requests">
+    PR requirements and process
+  </Card>
+  <Card title="Conventional Commits" icon="git-alt" href="/developers/conventional-commits">
+    Commit message guidelines
+  </Card>
+</CardGroup>

@@ -1,0 +1,346 @@
+---
+title: "Calendar Automation"
+description: "Manage your schedule and automate calendar tasks with GAIA's intelligent calendar integration"
+---
+
+## Overview
+
+GAIA connects to your Google Calendar to help you manage events, schedule meetings, and automate calendar-related tasks. Use natural language or the visual interface to control your schedule.
+
+## Setting up calendar integration
+
+<Steps>
+  <Step title="Connect your Google account">
+    Navigate to **Settings** > **Integrations** and click **Connect Google Calendar**.
+  </Step>
+  
+  <Step title="Authorize access">
+    Grant GAIA permission to read and manage your calendar events.
+  </Step>
+  
+  <Step title="Select calendars">
+    Choose which calendars you want GAIA to display and manage. You can select multiple calendars.
+  </Step>
+  
+  <Step title="Start scheduling">
+    Once connected, you can view and manage events directly from GAIA.
+  </Step>
+</Steps>
+
+<Note>
+  GAIA supports multiple Google Calendars. You can switch between personal, work, and shared calendars easily.
+</Note>
+
+## Viewing your calendar
+
+### Calendar page
+
+Access your calendar by clicking the **Calendar** icon in the sidebar. The calendar view shows:
+
+- **Grid view**: Day-by-day event display with time slots
+- **All-day events**: Events without specific times appear at the top
+- **Event colors**: Match your Google Calendar color coding
+- **Current time indicator**: A line showing the current time on today's view
+
+### Date navigation
+
+Navigate through your schedule:
+
+- Use the **date strip** at the top to jump to specific dates
+- Click **Today** to return to the current day
+- Use arrow buttons to move forward or backward
+- Scroll through the week view smoothly
+
+### Calendar selector
+
+Toggle which calendars are displayed:
+
+1. Click the **calendar selector** dropdown
+2. Check or uncheck calendars to show or hide their events
+3. Changes are saved automatically to your preferences
+
+Preferences are managed via `apps/web/src/features/calendar/api/calendarApi.ts:121`.
+
+## Creating events
+
+### With natural language
+
+Talk to GAIA to schedule events:
+
+- "Schedule a team meeting tomorrow at 2pm for one hour"
+- "Add lunch with Sarah on Friday at noon"
+- "Create a recurring standup every Monday at 9am"
+- "Block my calendar for focus time from 2-4pm today"
+
+GAIA will:
+- Parse the date, time, and duration
+- Create the event on your default calendar
+- Confirm the details with you
+
+<Tip>
+  GAIA understands context. You can say "Move the team meeting to Thursday" after just creating it, and GAIA will know which event you mean.
+</Tip>
+
+### Using the visual interface
+
+<Steps>
+  <Step title="Click a time slot">
+    On the calendar grid, click the date and time when you want to create an event.
+  </Step>
+  
+  <Step title="Fill in event details">
+    A modal will appear where you can enter:
+    - **Title**: Event name
+    - **Start time**: When it begins
+    - **End time**: When it ends
+    - **Description**: Additional details (optional)
+    - **Calendar**: Which calendar to add it to
+    - **All-day**: Toggle for all-day events
+  </Step>
+  
+  <Step title="Save the event">
+    Click **Create** to add the event to your calendar.
+  </Step>
+</Steps>
+
+### Batch event creation
+
+Create multiple events at once:
+
+- Useful for scheduling a series of meetings or recurring events
+- Provide a list of events to GAIA in chat
+- The API handles bulk creation efficiently at `apps/web/src/features/calendar/api/calendarApi.ts:203`
+
+<Note>
+  Batch operations return both successful and failed events, so you can see which events were created and which need attention.
+</Note>
+
+## Managing events
+
+### Viewing event details
+
+Click any event on the calendar to see:
+
+- Full event description
+- Attendees (if any)
+- Location
+- Calendar it belongs to
+- Edit and delete options
+
+### Editing events
+
+Modify events in two ways:
+
+**Visual editing:**
+1. Click the event to open details
+2. Click **Edit**
+3. Modify any field
+4. Click **Save**
+
+**AI-powered editing:**
+- "Move the team meeting to 3pm"
+- "Change tomorrow's lunch to 1pm instead of noon"
+- "Make the standup 30 minutes instead of 15"
+
+GAIA will find the relevant event and update it accordingly.
+
+### Deleting events
+
+Remove events from your calendar:
+
+**Manual deletion:**
+- Click the event
+- Click **Delete**
+- Confirm the deletion
+
+**AI deletion:**
+- "Delete the team meeting on Thursday"
+- "Cancel my 3pm appointment"
+- "Remove all events labeled 'tentative' next week"
+
+<Warning>
+  Deleted events are removed from Google Calendar permanently. This action cannot be undone.
+</Warning>
+
+### Bulk operations
+
+Manage multiple events efficiently:
+
+- **Batch updates**: Modify several events at once (e.g., "Move all Monday meetings to Tuesday")
+- **Batch deletion**: Remove multiple events (e.g., "Delete all placeholder events next month")
+- APIs support batch operations at `apps/web/src/features/calendar/api/calendarApi.ts:223` and `apps/web/src/features/calendar/api/calendarApi.ts:278`
+
+## Calendar automation
+
+### Smart scheduling
+
+GAIA helps you schedule intelligently:
+
+- **Find free time**: "When am I free tomorrow afternoon?"
+- **Avoid conflicts**: Automatically detects scheduling conflicts
+- **Suggest times**: "Find a 30-minute slot this week for a client call"
+- **Buffer time**: Automatically add buffer between back-to-back meetings
+
+### Event templates
+
+Create reusable event templates for common meetings:
+
+1. Schedule an event with all the standard details
+2. GAIA learns your patterns (e.g., "team standup" always at 9am, 15 minutes)
+3. Next time, just say "Schedule the usual standup" and GAIA fills in the details
+
+### Calendar-based workflows
+
+Trigger workflows based on calendar events:
+
+- Send reminders before meetings
+- Prepare meeting agendas automatically
+- Create post-meeting follow-up tasks
+- Block focus time before deadlines
+
+See the [Workflow Creation guide](/guide/workflow-creation) for more details.
+
+## Advanced features
+
+### All-day events
+
+Create events without specific times:
+
+- Holidays
+- Deadlines
+- Multi-day events
+- Reminders
+
+All-day events appear at the top of the calendar grid, separate from timed events.
+
+### Recurring events
+
+Set up events that repeat:
+
+- Daily, weekly, monthly, or yearly
+- Custom patterns (e.g., "Every other Tuesday")
+- End date or number of occurrences
+- Edit single instances or the entire series
+
+<Note>
+  GAIA understands recurring patterns in natural language. Say "Schedule a weekly review every Friday at 3pm" and it will create the recurring series.
+</Note>
+
+### Time zones
+
+GAIA handles time zones automatically:
+
+- Events are displayed in your local time zone
+- The timezone is detected from your browser settings
+- Specify different time zones in natural language: "Schedule a call at 2pm EST"
+- Timezone information is sent with every request via `apps/web/src/features/calendar/api/calendarApi.ts:252`
+
+### Multi-calendar management
+
+Work with multiple calendars seamlessly:
+
+- View events from all calendars in one place
+- Create events on specific calendars: "Add to my work calendar"
+- Filter by calendar to focus on specific contexts
+- Color-coded events match your Google Calendar settings
+
+## Integration with other features
+
+### Todo integration
+
+Todos with due dates appear on your calendar:
+
+- See tasks alongside events
+- Plan your day with both meetings and work time
+- Complete todos directly from the calendar view
+
+### Chat integration
+
+Manage your calendar conversationally:
+
+- Ask about your schedule: "What's on my calendar today?"
+- Get meeting prep: "What meetings do I have tomorrow?"
+- Reschedule on the fly: "I need to move my 2pm to 3pm"
+- Find free time: "When am I available next week?"
+
+### Email integration
+
+Calendar and email work together:
+
+- Create calendar events from email meeting requests
+- Get email reminders before events
+- Share calendar availability via email
+
+## Calendar preferences
+
+Customize how GAIA manages your calendar:
+
+- **Default calendar**: Choose which calendar receives new events
+- **Event duration**: Set default meeting lengths
+- **Work hours**: Define your working hours for smart scheduling
+- **Selected calendars**: Choose which calendars are displayed
+
+Update preferences via **Settings** > **Calendar** or by asking GAIA.
+
+## Tips for effective calendar management
+
+<CardGroup cols={2}>
+  <Card title="Use descriptive titles" icon="text">
+    Event names should be clear and specific. "Q1 Planning" is better than "Meeting."
+  </Card>
+  
+  <Card title="Add descriptions" icon="note">
+    Include agenda items, attendees, or preparation notes in the event description.
+  </Card>
+  
+  <Card title="Block focus time" icon="clock">
+    Schedule blocks for deep work. GAIA will treat these as busy time.
+  </Card>
+  
+  <Card title="Review weekly" icon="calendar-week">
+    Ask GAIA "What's my schedule for next week?" to plan ahead.
+  </Card>
+  
+  <Card title="Use multiple calendars" icon="layer-group">
+    Separate work, personal, and project-specific events for better organization.
+  </Card>
+  
+  <Card title="Set reminders" icon="bell">
+    Google Calendar reminders help you prepare for meetings. Set them in the event details.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Events not appearing">
+    1. Check that your Google Calendar is connected in Settings
+    2. Verify the calendar is selected in the calendar selector
+    3. Try refreshing the calendar view
+    4. Reconnect your Google account if issues persist
+  </Accordion>
+  
+  <Accordion title="Can't create events">
+    1. Ensure you have write permissions to the calendar
+    2. Check that the calendar isn't read-only
+    3. Verify your Google Calendar connection is active
+  </Accordion>
+  
+  <Accordion title="Timezone issues">
+    1. Check your browser timezone settings
+    2. Specify timezone explicitly: "2pm EST"
+    3. Update your Google Calendar timezone settings
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Email Management" icon="envelope" href="/guide/email-management">
+    Learn how to manage your inbox with GAIA's email features.
+  </Card>
+  
+  <Card title="Workflow Creation" icon="diagram-project" href="/guide/workflow-creation">
+    Automate calendar-related tasks with workflows.
+  </Card>
+</CardGroup>

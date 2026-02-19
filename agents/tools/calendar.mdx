@@ -1,0 +1,645 @@
+---
+title: Calendar Tool
+description: Google Calendar integration for event management in GAIA
+---
+
+# Calendar Tool
+
+The Calendar tool provides comprehensive Google Calendar integration using Composio's custom tool infrastructure.
+
+## Overview
+
+The calendar tool enables agents to:
+
+- List calendars
+- Fetch events with filtering
+- Search for specific events
+- Create events (with confirmation flow)
+- Update existing events
+- Delete events
+- Add recurrence rules
+- Get day summaries with busy hours
+
+```python
+# Location: apps/api/app/agents/tools/calendar_tool.py
+```
+
+## Authentication
+
+The calendar tool uses OAuth access tokens from Composio:
+
+```python
+def _get_access_token(auth_credentials: Dict[str, Any]) -> str:
+    """Extract access token from auth_credentials."""
+    token = auth_credentials.get("access_token")
+    if not token:
+        raise ValueError("Missing access_token in auth_credentials")
+    return token
+
+def _auth_headers(access_token: str) -> Dict[str, str]:
+    """Return Bearer token header for Google Calendar API."""
+    return {"Authorization": f"Bearer {access_token}"}
+```
+
+## Available Tools
+
+### List Calendars
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_LIST_CALENDARS(
+    request: ListCalendarsInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    List all user's calendars.
+    
+    Args:
+        request: Contains 'short' flag for abbreviated output
+        auth_credentials: OAuth credentials with access_token
+    
+    Returns:
+        {"calendars": [{"id": "...", "name": "...", ...}]}
+    """
+    access_token = _get_access_token(auth_credentials)
+    calendars = calendar_service.list_calendars(access_token, short=request.short)
+    return {"calendars": calendars}
+```
+
+**Parameters:**
+- `short` (bool): Return abbreviated calendar info
+
+**Returns:**
+```json
+{
+  "calendars": [
+    {
+      "id": "user@gmail.com",
+      "name": "Personal",
+      "primary": true,
+      "color": "#9fc6e7"
+    }
+  ]
+}
+```
+
+### Get Day Summary
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_GET_DAY_SUMMARY(
+    request: GetDaySummaryInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Get comprehensive day summary with events and busy hours.
+    
+    Args:
+        request: Contains optional 'date' in YYYY-MM-DD format
+        auth_credentials: OAuth credentials
+    
+    Returns:
+        Day summary with events, next event, and busy hours
+    """
+    access_token = _get_access_token(auth_credentials)
+    user_id = _get_user_id(auth_credentials)
+    
+    # Get user timezone
+    user = await user_service.get_user_by_id(user_id)
+    user_timezone = user.get("timezone") or "UTC"
+    tz = zoneinfo.ZoneInfo(user_timezone)
+    
+    # Parse target date
+    now = datetime.now(tz)
+    if request.date:
+        target_date = datetime.strptime(request.date, "%Y-%m-%d").replace(tzinfo=tz)
+    else:
+        target_date = now
+    
+    day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = day_start + timedelta(days=1)
+    
+    # Fetch events
+    result = calendar_service.get_calendar_events(
+        user_id=user_id,
+        access_token=access_token,
+        time_min=day_start.isoformat(),
+        time_max=day_end.isoformat(),
+        max_results=100,
+    )
+    
+    events = result.get("events", [])
+    
+    # Calculate busy hours
+    busy_minutes = sum_event_durations(events)
+    
+    # Find next event
+    next_event = find_next_event(events, now)
+    
+    return {
+        "date": day_start.strftime("%Y-%m-%d"),
+        "timezone": user_timezone,
+        "events": formatted_events,
+        "next_event": next_event,
+        "busy_hours": round(busy_minutes / 60, 1),
+    }
+```
+
+**Parameters:**
+- `date` (optional str): Date in YYYY-MM-DD format, defaults to today
+
+**Returns:**
+```json
+{
+  "date": "2024-01-15",
+  "timezone": "America/New_York",
+  "events": [...],
+  "next_event": {
+    "summary": "Team Meeting",
+    "start": {"dateTime": "2024-01-15T14:00:00-05:00"}
+  },
+  "busy_hours": 3.5
+}
+```
+
+### Fetch Events
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_FETCH_EVENTS(
+    request: FetchEventsInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Fetch events with time range filtering.
+    
+    Args:
+        request: Contains time_min, time_max, max_results, calendar_ids
+        auth_credentials: OAuth credentials
+    
+    Returns:
+        Filtered events with pagination support
+    """
+    access_token = _get_access_token(auth_credentials)
+    user_id = _get_user_id(auth_credentials)
+    
+    time_min = request.time_min or datetime.now(timezone.utc).isoformat()
+    
+    result = calendar_service.get_calendar_events(
+        user_id=user_id,
+        access_token=access_token,
+        selected_calendars=request.calendar_ids if request.calendar_ids else None,
+        time_min=time_min,
+        time_max=request.time_max,
+        max_results=request.max_results,
+    )
+    
+    events = result.get("events", [])
+    
+    # Format for frontend
+    color_map, name_map = calendar_service.get_calendar_metadata_map(access_token)
+    calendar_fetch_data = [
+        calendar_service.format_event_for_frontend(event, color_map, name_map)
+        for event in events
+    ]
+    
+    return {
+        "calendar_fetch_data": calendar_fetch_data,
+        "has_more": result.get("has_more", False),
+    }
+```
+
+**Parameters:**
+- `time_min` (optional str): Start time (ISO 8601)
+- `time_max` (optional str): End time (ISO 8601)
+- `max_results` (int): Maximum events to return
+- `calendar_ids` (optional list): Filter by specific calendars
+
+### Find Event
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_FIND_EVENT(
+    request: FindEventInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Search for events by natural language query.
+    
+    Args:
+        request: Contains query, time_min, time_max
+        auth_credentials: OAuth credentials
+    
+    Returns:
+        Matching events sorted by relevance
+    """
+    access_token = _get_access_token(auth_credentials)
+    user_id = _get_user_id(auth_credentials)
+    
+    result = calendar_service.search_calendar_events_native(
+        query=request.query,
+        user_id=user_id,
+        access_token=access_token,
+        time_min=request.time_min,
+        time_max=request.time_max,
+    )
+    
+    events = result.get("matching_events", [])
+    
+    return {
+        "events": events,
+        "calendar_search_data": formatted_events,
+    }
+```
+
+**Parameters:**
+- `query` (str): Search query (e.g., "team meeting", "dentist")
+- `time_min` (optional str): Earliest event start time
+- `time_max` (optional str): Latest event start time
+
+### Create Event
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_CREATE_EVENT(
+    request: CreateEventInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Create calendar events with optional confirmation flow.
+    
+    Args:
+        request: Contains events list and confirm_immediately flag
+        auth_credentials: OAuth credentials
+    
+    Returns:
+        Created events or options for confirmation
+    """
+    access_token = _get_access_token(auth_credentials)
+    headers = _auth_headers(access_token)
+    headers["Content-Type"] = "application/json"
+    
+    created_events = []
+    calendar_options = []
+    
+    for event in request.events:
+        # Parse start time
+        start_dt = datetime.fromisoformat(event.start_datetime)
+        
+        # Calculate end time from duration
+        duration = timedelta(
+            hours=event.duration_hours,
+            minutes=event.duration_minutes
+        )
+        end_dt = start_dt + duration
+        
+        # Ensure timezone
+        if start_dt.tzinfo is None:
+            start_dt = start_dt.replace(tzinfo=timezone.utc)
+            end_dt = end_dt.replace(tzinfo=timezone.utc)
+        
+        # Build event body
+        body = {"summary": event.summary}
+        
+        if event.is_all_day:
+            body["start"] = {"date": start_dt.strftime("%Y-%m-%d")}
+            body["end"] = {"date": end_dt.strftime("%Y-%m-%d")}
+        else:
+            body["start"] = {"dateTime": start_dt.isoformat()}
+            body["end"] = {"dateTime": end_dt.isoformat()}
+        
+        if event.description:
+            body["description"] = event.description
+        if event.location:
+            body["location"] = event.location
+        if event.attendees:
+            body["attendees"] = [{"email": email} for email in event.attendees]
+        
+        if request.confirm_immediately:
+            # Create directly
+            url = f"{CALENDAR_API_BASE}/calendars/{event.calendar_id}/events"
+            resp = _http_client.post(
+                url,
+                headers=headers,
+                json=body,
+                params={"sendUpdates": "all"},
+            )
+            resp.raise_for_status()
+            created_events.append(resp.json())
+        else:
+            # Prepare for frontend confirmation
+            calendar_options.append({
+                "summary": event.summary,
+                "start": body["start"],
+                "end": body["end"],
+                "calendar_id": event.calendar_id,
+                # ... metadata
+            })
+    
+    if request.confirm_immediately:
+        return {"created": True, "created_events": created_events}
+    else:
+        return {"created": False, "calendar_options": calendar_options}
+```
+
+**Parameters:**
+- `events` (list): Events to create
+  - `summary` (str): Event title
+  - `start_datetime` (str): ISO 8601 start time
+  - `duration_hours` (int): Event duration hours
+  - `duration_minutes` (int): Event duration minutes
+  - `calendar_id` (str): Target calendar ID
+  - `description` (optional str): Event description
+  - `location` (optional str): Event location
+  - `attendees` (optional list[str]): Attendee emails
+  - `is_all_day` (bool): All-day event flag
+- `confirm_immediately` (bool): Skip confirmation UI
+
+**Returns:**
+```json
+{
+  "created": false,
+  "calendar_options": [
+    {
+      "summary": "Team Meeting",
+      "start": {"dateTime": "2024-01-15T14:00:00Z"},
+      "end": {"dateTime": "2024-01-15T15:00:00Z"},
+      "calendar_id": "primary"
+    }
+  ],
+  "message": "1 event(s) prepared for confirmation."
+}
+```
+
+### Update Event
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_PATCH_EVENT(
+    request: PatchEventInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Partially update an existing event.
+    
+    Args:
+        request: Event ID, calendar ID, and fields to update
+        auth_credentials: OAuth credentials
+    
+    Returns:
+        Updated event data
+    """
+    access_token = _get_access_token(auth_credentials)
+    
+    url = f"{CALENDAR_API_BASE}/calendars/{request.calendar_id}/events/{request.event_id}"
+    headers = _auth_headers(access_token)
+    headers["Content-Type"] = "application/json"
+    
+    body = {}
+    if request.summary is not None:
+        body["summary"] = request.summary
+    if request.description is not None:
+        body["description"] = request.description
+    if request.location is not None:
+        body["location"] = request.location
+    if request.start_datetime is not None:
+        body["start"] = {"dateTime": request.start_datetime}
+    if request.end_datetime is not None:
+        body["end"] = {"dateTime": request.end_datetime}
+    if request.attendees is not None:
+        body["attendees"] = [{"email": email} for email in request.attendees]
+    
+    resp = _http_client.patch(
+        url,
+        headers=headers,
+        json=body,
+        params={"sendUpdates": request.send_updates}
+    )
+    resp.raise_for_status()
+    return {"event": resp.json()}
+```
+
+**Parameters:**
+- `event_id` (str): Event ID to update
+- `calendar_id` (str): Calendar ID containing the event
+- `summary` (optional str): New event title
+- `description` (optional str): New description
+- `location` (optional str): New location
+- `start_datetime` (optional str): New start time
+- `end_datetime` (optional str): New end time
+- `attendees` (optional list[str]): New attendee list
+- `send_updates` (str): "all", "externalOnly", or "none"
+
+### Delete Event
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_DELETE_EVENT(
+    request: DeleteEventInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Delete one or more calendar events.
+    
+    Args:
+        request: List of events to delete and send_updates preference
+        auth_credentials: OAuth credentials
+    
+    Returns:
+        List of deleted events and errors
+    """
+    access_token = _get_access_token(auth_credentials)
+    headers = _auth_headers(access_token)
+    params = {"sendUpdates": request.send_updates}
+    
+    deleted = []
+    errors = []
+    
+    for event_ref in request.events:
+        url = f"{CALENDAR_API_BASE}/calendars/{event_ref.calendar_id}/events/{event_ref.event_id}"
+        try:
+            resp = _http_client.delete(url, headers=headers, params=params)
+            resp.raise_for_status()
+            deleted.append({
+                "event_id": event_ref.event_id,
+                "calendar_id": event_ref.calendar_id,
+            })
+        except httpx.HTTPStatusError as e:
+            errors.append({
+                "event_id": event_ref.event_id,
+                "error": f"Failed to delete: {e}",
+            })
+    
+    if errors and not deleted:
+        raise RuntimeError(f"Failed to delete events: {errors}")
+    
+    return {"deleted": deleted}
+```
+
+**Parameters:**
+- `events` (list): Events to delete
+  - `event_id` (str): Event ID
+  - `calendar_id` (str): Calendar ID
+- `send_updates` (str): Notification preference
+
+### Add Recurrence
+
+```python
+@composio.tools.custom_tool(toolkit="GOOGLECALENDAR")
+def CUSTOM_ADD_RECURRENCE(
+    request: AddRecurrenceInput,
+    execute_request: Any,
+    auth_credentials: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Add recurrence rule to an existing event.
+    
+    Args:
+        request: Event ID, calendar ID, and recurrence parameters
+        auth_credentials: OAuth credentials
+    
+    Returns:
+        Updated event with recurrence rule
+    """
+    access_token = _get_access_token(auth_credentials)
+    url = f"{CALENDAR_API_BASE}/calendars/{request.calendar_id}/events/{request.event_id}"
+    headers = _auth_headers(access_token)
+    
+    # Get existing event
+    resp = _http_client.get(url, headers=headers)
+    resp.raise_for_status()
+    event = resp.json()
+    
+    # Build RRULE
+    rrule_parts = [f"FREQ={request.frequency}"]
+    if request.interval != 1:
+        rrule_parts.append(f"INTERVAL={request.interval}")
+    if request.count > 0:
+        rrule_parts.append(f"COUNT={request.count}")
+    if request.until_date:
+        until_formatted = request.until_date.replace("-", "")
+        rrule_parts.append(f"UNTIL={until_formatted}")
+    if request.by_day:
+        rrule_parts.append(f"BYDAY={','.join(request.by_day)}")
+    
+    rrule = "RRULE:" + ";".join(rrule_parts)
+    event["recurrence"] = [rrule]
+    
+    # Update event
+    headers["Content-Type"] = "application/json"
+    resp = _http_client.put(url, headers=headers, json=event)
+    resp.raise_for_status()
+    
+    return {
+        "event": resp.json(),
+        "recurrence_rule": rrule,
+    }
+```
+
+**Parameters:**
+- `event_id` (str): Event to make recurring
+- `calendar_id` (str): Calendar ID
+- `frequency` (str): "DAILY", "WEEKLY", "MONTHLY", "YEARLY"
+- `interval` (int): Recurrence interval (default: 1)
+- `count` (int): Number of occurrences (0 for infinite)
+- `until_date` (optional str): End date (YYYY-MM-DD)
+- `by_day` (optional list[str]): Days of week ("MO", "TU", etc.)
+
+**Example RRULE:**
+```
+RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR;COUNT=10
+```
+
+## Tool Registration
+
+```python
+def register_calendar_custom_tools(composio: Composio) -> List[str]:
+    """Register all calendar tools with Composio.
+    
+    Returns:
+        List of registered tool names
+    """
+    # ... tool definitions ...
+    
+    return [
+        "GOOGLECALENDAR_CUSTOM_CREATE_EVENT",
+        "GOOGLECALENDAR_CUSTOM_LIST_CALENDARS",
+        "GOOGLECALENDAR_CUSTOM_GET_DAY_SUMMARY",
+        "GOOGLECALENDAR_CUSTOM_FETCH_EVENTS",
+        "GOOGLECALENDAR_CUSTOM_FIND_EVENT",
+        "GOOGLECALENDAR_CUSTOM_GET_EVENT",
+        "GOOGLECALENDAR_CUSTOM_DELETE_EVENT",
+        "GOOGLECALENDAR_CUSTOM_PATCH_EVENT",
+        "GOOGLECALENDAR_CUSTOM_ADD_RECURRENCE",
+    ]
+```
+
+## Error Handling
+
+All calendar tools use consistent error handling:
+
+```python
+try:
+    resp = _http_client.get(url, headers=headers)
+    resp.raise_for_status()
+    return {"event": resp.json()}
+except httpx.HTTPStatusError as e:
+    logger.error(f"Calendar API error: {e}")
+    raise RuntimeError(f"Calendar operation failed: {e}")
+```
+
+Composio automatically wraps responses:
+
+```json
+{
+  "successful": true,
+  "data": { "events": [...] },
+  "error": null
+}
+```
+
+<Note>
+Calendar tools raise exceptions on errors rather than returning error dictionaries. Composio wraps all responses in a standardized format with `successful`, `data`, and `error` fields.
+</Note>
+
+## Usage Examples
+
+### Agent creating an event
+
+```python
+# Agent receives: "Schedule a team meeting tomorrow at 2pm for 1 hour"
+
+# 1. Agent lists calendars to find primary
+calendars = await agent_tool("CUSTOM_LIST_CALENDARS", {"short": True})
+primary_calendar = next(c for c in calendars["calendars"] if c["primary"])
+
+# 2. Agent creates event (without immediate confirmation)
+tomorrow_2pm = (datetime.now() + timedelta(days=1)).replace(hour=14, minute=0)
+result = await agent_tool("CUSTOM_CREATE_EVENT", {
+    "events": [{
+        "summary": "Team Meeting",
+        "start_datetime": tomorrow_2pm.isoformat(),
+        "duration_hours": 1,
+        "duration_minutes": 0,
+        "calendar_id": primary_calendar["id"],
+    }],
+    "confirm_immediately": False
+})
+
+# 3. Frontend shows calendar option card for user confirmation
+# 4. User clicks confirm, API creates the event
+```
+
+## Next Steps
+
+- [Todo Tool](/agents/tools/todo) - Task management
+- [Email Tool](/agents/tools/email) - Gmail integration
+- [Memory Tool](/agents/tools/memory) - Memory storage
+- [Integration Tool](/agents/tools/integrations) - OAuth management

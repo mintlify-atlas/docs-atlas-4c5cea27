@@ -1,0 +1,648 @@
+---
+title: Database Setup
+description: Configure and initialize PostgreSQL, MongoDB, Redis, and ChromaDB for GAIA
+---
+
+## Overview
+
+GAIA uses four database systems, each serving specific purposes:
+
+- **PostgreSQL**: User data, authentication, and LangGraph agent state
+- **MongoDB**: Conversation history and flexible document storage
+- **Redis**: Caching, sessions, and task queue
+- **ChromaDB**: Vector embeddings for semantic search
+- **RabbitMQ**: Message broker for inter-service communication
+
+<Note>
+  When using Docker Compose, all databases are automatically configured and initialized. Manual setup is only needed for custom deployments.
+</Note>
+
+## Docker Compose Setup (Recommended)
+
+The easiest way to set up databases is using Docker Compose, which handles all configuration automatically.
+
+<Steps>
+  <Step title="Start database services">
+    ```bash
+    cd infra/docker
+    docker compose up -d postgres mongo redis chromadb rabbitmq
+    ```
+  </Step>
+
+  <Step title="Verify services are healthy">
+    ```bash
+    docker compose ps
+    ```
+    
+    All services should show "healthy" status.
+  </Step>
+
+  <Step title="Check connectivity">
+    Test each database connection:
+    
+    ```bash
+    # PostgreSQL
+    docker exec -it postgres psql -U postgres -c "SELECT version();"
+    
+    # MongoDB
+    docker exec -it mongo mongosh --eval "db.version()"
+    
+    # Redis
+    docker exec -it redis redis-cli ping
+    
+    # ChromaDB
+    curl http://localhost:8080/api/v1/heartbeat
+    
+    # RabbitMQ
+    curl -u guest:guest http://localhost:15672/api/overview
+    ```
+  </Step>
+</Steps>
+
+## PostgreSQL Configuration
+
+### Database Schema
+
+PostgreSQL stores:
+- User accounts and authentication data
+- Application metadata
+- LangGraph agent state and checkpoints
+- Relational data requiring ACID compliance
+
+### Connection Settings
+
+```bash
+POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/langgraph
+```
+
+### Manual Installation
+
+If not using Docker:
+
+<Steps>
+  <Step title="Install PostgreSQL">
+    ```bash
+    # Ubuntu/Debian
+    sudo apt update
+    sudo apt install postgresql postgresql-contrib
+    
+    # macOS
+    brew install postgresql@15
+    brew services start postgresql@15
+    
+    # Start service
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+    ```
+  </Step>
+
+  <Step title="Create database and user">
+    ```bash
+    sudo -u postgres psql
+    ```
+    
+    In PostgreSQL shell:
+    ```sql
+    CREATE DATABASE langgraph;
+    CREATE USER gaia_user WITH PASSWORD 'your-secure-password';
+    GRANT ALL PRIVILEGES ON DATABASE langgraph TO gaia_user;
+    \q
+    ```
+  </Step>
+
+  <Step title="Configure authentication">
+    Edit `/etc/postgresql/15/main/pg_hba.conf`:
+    
+    ```
+    # Allow password authentication
+    host    langgraph    gaia_user    0.0.0.0/0    md5
+    ```
+    
+    Restart PostgreSQL:
+    ```bash
+    sudo systemctl restart postgresql
+    ```
+  </Step>
+
+  <Step title="Update environment variables">
+    ```bash
+    POSTGRES_URL=postgresql://gaia_user:your-secure-password@localhost:5432/langgraph
+    ```
+  </Step>
+</Steps>
+
+### Schema Initialization
+
+GAIA automatically creates tables on first startup using SQLAlchemy's declarative base:
+
+```python
+# Executed automatically by app/db/postgresql.py
+async with engine.begin() as conn:
+    await conn.run_sync(Base.metadata.create_all)
+```
+
+No manual schema setup is required.
+
+### Performance Tuning
+
+For production, optimize PostgreSQL settings in `postgresql.conf`:
+
+```conf
+# Memory settings (adjust based on available RAM)
+shared_buffers = 256MB
+effective_cache_size = 1GB
+work_mem = 16MB
+maintenance_work_mem = 128MB
+
+# Connection settings
+max_connections = 100
+
+# Write-Ahead Log
+wal_buffers = 16MB
+checkpoint_completion_target = 0.9
+```
+
+## MongoDB Configuration
+
+### Database Schema
+
+MongoDB stores:
+- Conversation messages and history
+- Agent memory and context
+- Flexible document data
+- User preferences and settings
+
+### Connection Settings
+
+```bash
+MONGO_DB=mongodb://mongo:27017/gaia
+```
+
+### Manual Installation
+
+<Steps>
+  <Step title="Install MongoDB">
+    ```bash
+    # Ubuntu/Debian
+    wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu $(lsb_release -sc)/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+    sudo apt update
+    sudo apt install -y mongodb-org
+    
+    # macOS
+    brew tap mongodb/brew
+    brew install mongodb-community@7.0
+    brew services start mongodb-community@7.0
+    
+    # Start service
+    sudo systemctl start mongod
+    sudo systemctl enable mongod
+    ```
+  </Step>
+
+  <Step title="Create database and user">
+    ```bash
+    mongosh
+    ```
+    
+    In MongoDB shell:
+    ```javascript
+    use gaia
+    db.createUser({
+      user: "gaia_user",
+      pwd: "your-secure-password",
+      roles: [
+        { role: "readWrite", db: "gaia" }
+      ]
+    })
+    ```
+  </Step>
+
+  <Step title="Enable authentication">
+    Edit `/etc/mongod.conf`:
+    
+    ```yaml
+    security:
+      authorization: enabled
+    
+    net:
+      port: 27017
+      bindIp: 0.0.0.0
+    ```
+    
+    Restart MongoDB:
+    ```bash
+    sudo systemctl restart mongod
+    ```
+  </Step>
+
+  <Step title="Update environment variables">
+    ```bash
+    MONGO_DB=mongodb://gaia_user:your-secure-password@localhost:27017/gaia?authSource=gaia
+    ```
+  </Step>
+</Steps>
+
+### Collections
+
+GAIA creates these collections automatically:
+- `conversations`: Chat messages and threads
+- `memories`: Agent memory storage
+- `user_data`: User preferences and settings
+- `integrations`: Third-party integration data
+
+### Indexes
+
+Recommended indexes for performance:
+
+```javascript
+// In mongosh
+use gaia
+
+// Conversation queries
+db.conversations.createIndex({ "user_id": 1, "created_at": -1 })
+db.conversations.createIndex({ "thread_id": 1 })
+
+// Memory queries
+db.memories.createIndex({ "user_id": 1, "type": 1 })
+```
+
+## Redis Configuration
+
+### Usage
+
+Redis provides:
+- Session storage
+- Response caching
+- ARQ task queue
+- Real-time event pub/sub
+- Rate limiting
+
+### Connection Settings
+
+```bash
+REDIS_URL=redis://redis:6379
+```
+
+### Manual Installation
+
+<Steps>
+  <Step title="Install Redis">
+    ```bash
+    # Ubuntu/Debian
+    sudo apt update
+    sudo apt install redis-server
+    
+    # macOS
+    brew install redis
+    brew services start redis
+    
+    # Start service
+    sudo systemctl start redis-server
+    sudo systemctl enable redis-server
+    ```
+  </Step>
+
+  <Step title="Configure Redis">
+    Edit `/etc/redis/redis.conf`:
+    
+    ```conf
+    # Bind to all interfaces (or specific IP)
+    bind 0.0.0.0
+    
+    # Set password
+    requirepass your-secure-password
+    
+    # Persistence
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    # Memory limit
+    maxmemory 2gb
+    maxmemory-policy allkeys-lru
+    ```
+    
+    Restart Redis:
+    ```bash
+    sudo systemctl restart redis-server
+    ```
+  </Step>
+
+  <Step title="Update environment variables">
+    ```bash
+    REDIS_URL=redis://:your-secure-password@localhost:6379
+    ```
+  </Step>
+</Steps>
+
+### Persistence
+
+Redis persistence options:
+
+- **RDB**: Point-in-time snapshots (configured above)
+- **AOF**: Append-only file for durability
+
+For production, enable AOF:
+
+```conf
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+```
+
+## ChromaDB Configuration
+
+### Usage
+
+ChromaDB stores:
+- Vector embeddings
+- Semantic search indexes
+- Document embeddings
+- Memory retrieval vectors
+
+### Connection Settings
+
+```bash
+CHROMADB_HOST=chromadb
+CHROMADB_PORT=8000
+```
+
+### Manual Installation
+
+<Steps>
+  <Step title="Install ChromaDB">
+    ```bash
+    # Using pip
+    pip install chromadb
+    
+    # Or use Docker (recommended)
+    docker run -d \
+      --name chromadb \
+      -p 8080:8000 \
+      -v chroma_data:/chroma/chroma \
+      -e PERSIST_DIRECTORY=/chroma/chroma \
+      chromadb/chroma:1.0.0
+    ```
+  </Step>
+
+  <Step title="Verify installation">
+    ```bash
+    curl http://localhost:8080/api/v1/heartbeat
+    ```
+    
+    Should return: `{"nanosecond heartbeat":...}`
+  </Step>
+
+  <Step title="Update environment variables">
+    ```bash
+    CHROMADB_HOST=localhost
+    CHROMADB_PORT=8080
+    ```
+  </Step>
+</Steps>
+
+### Collections
+
+GAIA creates collections automatically for different embedding types:
+- User memory embeddings
+- Document embeddings
+- Conversation context
+
+## RabbitMQ Configuration
+
+### Usage
+
+RabbitMQ provides:
+- Message queuing
+- Event distribution
+- Inter-service communication
+- Async task coordination
+
+### Connection Settings
+
+```bash
+RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+```
+
+### Manual Installation
+
+<Steps>
+  <Step title="Install RabbitMQ">
+    ```bash
+    # Ubuntu/Debian
+    sudo apt update
+    sudo apt install rabbitmq-server
+    
+    # macOS
+    brew install rabbitmq
+    brew services start rabbitmq
+    
+    # Start service
+    sudo systemctl start rabbitmq-server
+    sudo systemctl enable rabbitmq-server
+    ```
+  </Step>
+
+  <Step title="Enable management plugin">
+    ```bash
+    sudo rabbitmq-plugins enable rabbitmq_management
+    ```
+    
+    Access management UI at: http://localhost:15672 (guest/guest)
+  </Step>
+
+  <Step title="Create user and vhost">
+    ```bash
+    sudo rabbitmqctl add_user gaia_user your-secure-password
+    sudo rabbitmqctl add_vhost gaia_vhost
+    sudo rabbitmqctl set_permissions -p gaia_vhost gaia_user ".*" ".*" ".*"
+    ```
+  </Step>
+
+  <Step title="Update environment variables">
+    ```bash
+    RABBITMQ_URL=amqp://gaia_user:your-secure-password@localhost:5672/gaia_vhost
+    ```
+  </Step>
+</Steps>
+
+## Backup and Restore
+
+### PostgreSQL Backup
+
+```bash
+# Backup
+docker exec postgres pg_dump -U postgres langgraph > backup.sql
+
+# Restore
+docker exec -i postgres psql -U postgres langgraph < backup.sql
+```
+
+### MongoDB Backup
+
+```bash
+# Backup
+docker exec mongo mongodump --db gaia --out /backup
+docker cp mongo:/backup ./mongo-backup
+
+# Restore
+docker cp ./mongo-backup mongo:/backup
+docker exec mongo mongorestore --db gaia /backup/gaia
+```
+
+### Redis Backup
+
+```bash
+# Backup (RDB snapshot)
+docker exec redis redis-cli SAVE
+docker cp redis:/data/dump.rdb ./redis-backup.rdb
+
+# Restore
+docker cp ./redis-backup.rdb redis:/data/dump.rdb
+docker compose restart redis
+```
+
+### ChromaDB Backup
+
+```bash
+# Backup (copy volume data)
+docker run --rm -v chroma_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/chroma-backup.tar.gz -C /data .
+
+# Restore
+docker run --rm -v chroma_data:/data -v $(pwd):/backup \
+  alpine sh -c "cd /data && tar xzf /backup/chroma-backup.tar.gz"
+```
+
+<Warning>
+  Always test your backups by restoring to a separate environment to ensure they work correctly.
+</Warning>
+
+## Monitoring
+
+### Health Checks
+
+Monitor database health:
+
+```bash
+# PostgreSQL
+docker exec postgres pg_isready -U postgres
+
+# MongoDB
+docker exec mongo mongosh --eval "db.adminCommand('ping')"
+
+# Redis
+docker exec redis redis-cli ping
+
+# ChromaDB
+curl http://localhost:8080/api/v1/heartbeat
+
+# RabbitMQ
+docker exec rabbitmq rabbitmqctl status
+```
+
+### Resource Usage
+
+```bash
+# Monitor container resources
+docker stats postgres mongo redis chromadb rabbitmq
+```
+
+### Database Sizes
+
+```bash
+# PostgreSQL
+docker exec postgres psql -U postgres -c "SELECT pg_size_pretty(pg_database_size('langgraph'));"
+
+# MongoDB
+docker exec mongo mongosh --eval "db.stats().dataSize"
+
+# Redis
+docker exec redis redis-cli INFO memory | grep used_memory_human
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+If services can't connect:
+
+1. Verify containers are running: `docker compose ps`
+2. Check container logs: `docker compose logs [service]`
+3. Verify network connectivity: `docker network inspect gaia_network`
+4. Check environment variables match container names
+
+### Out of Disk Space
+
+```bash
+# Check volume sizes
+docker system df -v
+
+# Clean up old data
+docker volume prune
+```
+
+### Performance Issues
+
+1. **PostgreSQL**: Check slow queries with `pg_stat_statements`
+2. **MongoDB**: Review query performance with `.explain()`
+3. **Redis**: Monitor memory usage and eviction policy
+4. **ChromaDB**: Optimize collection settings for your use case
+
+### Data Corruption
+
+If data appears corrupted:
+
+1. Stop the affected service
+2. Restore from recent backup
+3. Check logs for errors that caused corruption
+4. Verify disk health and file system integrity
+
+## Security Best Practices
+
+<Warning>
+  **Production Security Requirements**:
+  - Change all default passwords
+  - Use strong, unique passwords (min 32 characters)
+  - Enable authentication on all services
+  - Use encrypted connections (SSL/TLS)
+  - Restrict network access with firewalls
+  - Regular security updates
+  - Monitor access logs
+</Warning>
+
+### PostgreSQL Security
+
+- Enable SSL: `ssl = on` in `postgresql.conf`
+- Use strong authentication: `scram-sha-256`
+- Limit connections: Configure `pg_hba.conf`
+- Regular security updates
+
+### MongoDB Security
+
+- Enable authentication: `security.authorization: enabled`
+- Use TLS: `net.tls.mode: requireTLS`
+- Create role-based users
+- Bind to specific IPs, not `0.0.0.0`
+
+### Redis Security
+
+- Set strong password: `requirepass`
+- Disable dangerous commands: `rename-command`
+- Use SSL/TLS: `tls-port`
+- Bind to specific interface
+
+### Network Isolation
+
+In production:
+- Use Docker networks to isolate services
+- Only expose necessary ports
+- Use reverse proxy for public access
+- Enable firewall rules
+
+## Next Steps
+
+With databases configured:
+- Proceed to [Production Deployment](/self-hosting/production-deployment)
+- Review [Environment Variables](/self-hosting/environment-variables) for additional settings

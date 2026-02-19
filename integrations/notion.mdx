@@ -1,0 +1,330 @@
+---
+title: Notion Integration
+description: Manage pages, databases, and workspace content with AI assistance
+---
+
+The Notion integration allows GAIA to create, read, and update pages and databases in your Notion workspace. Build and manage your knowledge base with natural language.
+
+## Features
+
+- **Page Management**: Create, update, and organize Notion pages
+- **Database Operations**: Manage databases and their entries
+- **Content Search**: Find pages and content across your workspace
+- **Property Updates**: Update page properties and metadata
+- **Block Manipulation**: Work with different block types
+- **Workspace Organization**: Structure your Notion workspace
+
+## Setup
+
+<Steps>
+  <Step title="Open Integrations">
+    Navigate to **Settings > Integrations** in GAIA
+  </Step>
+  <Step title="Find Notion">
+    Search for "Notion" in the Productivity category
+  </Step>
+  <Step title="Connect Workspace">
+    Click **Connect** to start OAuth flow
+  </Step>
+  <Step title="Select Pages">
+    In Notion's authorization screen, select which pages GAIA can access
+  </Step>
+  <Step title="Complete Authorization">
+    Click "Allow" to grant GAIA access to your Notion workspace
+  </Step>
+</Steps>
+
+<Warning>
+  You need to explicitly grant GAIA access to specific Notion pages during setup. You can always modify permissions later in Notion settings.
+</Warning>
+
+## OAuth Configuration
+
+The Notion integration uses OAuth 2.0:
+
+- **Provider**: Composio
+- **Toolkit**: NOTION
+- **Auth Type**: OAuth 2.0
+- **Workspace Scopes**: Selected by user during authorization
+
+### Provider Details
+
+- **Featured**: Yes
+- **Managed By**: Composio platform
+- **Auto-Discovery**: Workspace and user info extracted automatically
+
+## Usage Examples
+
+### Creating Pages
+
+```
+You: Create a new page called "Project Ideas" in my Notion workspace
+
+GAIA: I'll create that page for you.
+
+✓ Created page: "Project Ideas"
+  Location: Root workspace
+  Page ID: abc123...
+```
+
+### Adding to Databases
+
+```
+You: Add a new task to my "Tasks" database: "Review Q4 metrics" with status "To Do"
+
+GAIA: Added new entry to Tasks database:
+
+✓ Task: Review Q4 metrics
+  Status: To Do
+  Created: Just now
+```
+
+### Searching Content
+
+```
+You: Find all pages about "marketing strategy"
+
+GAIA: I found 4 pages matching "marketing strategy":
+
+1. Marketing Strategy 2024 (Updated 2 days ago)
+2. Q1 Marketing Plans (Updated last week)
+3. Social Media Marketing (Updated 1 month ago)
+4. Content Marketing Ideas (Updated 2 months ago)
+```
+
+### Updating Properties
+
+```
+You: Update the status of "Write blog post" to "In Progress"
+
+GAIA: Updated task properties:
+
+✓ Write blog post
+  Status: To Do → In Progress
+  Updated: Just now
+```
+
+### Organizing Content
+
+```
+You: Move all pages tagged "archive" to the Archive folder
+
+GAIA: Moving 7 pages to Archive folder...
+
+✓ Moved 7 pages to Archive
+```
+
+## Available Actions
+
+The Notion agent can perform:
+
+- Create pages and sub-pages
+- Update page content and properties
+- Search across workspace
+- Manage databases
+- Add database entries
+- Update database properties
+- Organize page hierarchy
+- Work with blocks (text, headings, lists, etc.)
+- Manage page permissions
+- Retrieve workspace information
+
+## Workflows & Triggers
+
+Notion supports several automation triggers:
+
+### Page Added to Database Trigger
+
+**Trigger**: When a new page is added to a specific database
+
+**Configuration**:
+```yaml
+trigger: notion_new_page_in_db
+config:
+  database_id: "abc123..."  # Your database ID
+```
+
+**Use Cases**:
+- Auto-notify team when new tasks are created
+- Sync new entries to other tools
+- Run validation workflows
+- Send notifications
+
+### Page Updated Trigger
+
+**Trigger**: When a specific page is updated
+
+**Configuration**:
+```yaml
+trigger: notion_page_updated
+config:
+  page_id: "xyz789..."  # Specific page ID
+```
+
+**Use Cases**:
+- Track document changes
+- Notify stakeholders of updates
+- Version control
+- Backup automation
+
+### All Page Events Trigger
+
+**Trigger**: When any page is created or updated in workspace
+
+**Configuration**:
+```yaml
+trigger: notion_all_page_events
+config: {}
+```
+
+**Use Cases**:
+- Workspace activity monitoring
+- Comprehensive backup
+- Cross-workspace synchronization
+
+## AI Agent Details
+
+Notion uses a specialized subagent:
+
+- **Agent Name**: `notion_agent`
+- **Domain**: Workspace and knowledge management
+- **Capabilities**:
+  - Creating structured pages
+  - Managing databases intelligently
+  - Understanding Notion's block structure
+  - Organizing content hierarchically
+  - Searching and filtering content
+  - Property management
+
+### Agent Intelligence
+
+The Notion agent understands:
+- Different block types (paragraphs, headings, lists, code)
+- Database structures and properties
+- Page hierarchies and relationships
+- Notion's formatting syntax
+- Workspace organization patterns
+
+## API Reference
+
+Key tools available:
+
+| Tool | Description |
+|------|-------------|
+| `NOTION_GET_ABOUT_ME` | Get workspace and user info |
+| `NOTION_SEARCH` | Search pages and databases |
+| `NOTION_CREATE_PAGE` | Create a new page |
+| `NOTION_UPDATE_PAGE` | Update page properties |
+| `NOTION_GET_PAGE` | Retrieve page details |
+| `NOTION_GET_DATABASE` | Get database schema |
+| `NOTION_QUERY_DATABASE` | Query database entries |
+| `NOTION_CREATE_DATABASE_ENTRY` | Add entry to database |
+| `NOTION_UPDATE_DATABASE_ENTRY` | Update database entry |
+| `NOTION_GET_BLOCK_CHILDREN` | Get page content blocks |
+
+For complete API documentation, see [Notion Tools Reference](/api-reference/integrations/notion).
+
+## Metadata Extraction
+
+GAIA automatically extracts your Notion workspace info:
+
+```json
+{
+  "user_id": "user_abc123",
+  "workspace_id": "ws_xyz789",
+  "workspace_name": "My Workspace"
+}
+```
+
+This is used for:
+- Workspace-specific operations
+- User attribution
+- Permission management
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't access certain pages">
+    GAIA can only access pages you explicitly granted during OAuth. Go to Notion Settings > Integrations to modify permissions.
+  </Accordion>
+  
+  <Accordion title="Database operations failing">
+    Ensure the database has the required properties. GAIA will tell you which properties are missing.
+  </Accordion>
+  
+  <Accordion title="Search not finding pages">
+    Notion's search only includes pages GAIA has access to. Check your integration permissions.
+  </Accordion>
+  
+  <Accordion title="Page creation errors">
+    Verify you have edit permissions in the target location. Some workspaces restrict page creation.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+  Grant GAIA access to your top-level folders so it can create pages anywhere in your workspace.
+</Tip>
+
+<Tip>
+  Use database templates to ensure consistent properties when creating new entries.
+</Tip>
+
+<Warning>
+  Be specific about which database when you have multiple databases with similar names.
+</Warning>
+
+## Advanced Usage
+
+### Working with Databases
+
+```
+You: Create a new CRM database with properties: Name (title), Email (email), Status (select), and Last Contact (date)
+
+GAIA: Creating CRM database with specified properties...
+
+✓ Created database: "CRM"
+  Properties: Name, Email, Status, Last Contact
+  Location: Root workspace
+```
+
+### Complex Queries
+
+```
+You: Show me all tasks in the "Projects" database that are marked "High Priority" and due this week
+
+GAIA: Found 3 high-priority tasks due this week:
+
+1. Launch marketing campaign (Due: Wednesday)
+2. Finalize Q4 budget (Due: Thursday)  
+3. Review contract proposal (Due: Friday)
+```
+
+### Batch Operations
+
+```
+You: Update all tasks assigned to "John" to status "In Review"
+
+GAIA: Updating tasks assigned to John...
+
+✓ Updated 5 tasks to "In Review" status
+```
+
+## Related Integrations
+
+- [Google Docs](/integrations/google-docs) - Convert Notion pages to Google Docs
+- [Slack](/integrations/slack) - Send Notion updates to Slack
+- [Linear](/integrations/linear) - Sync Linear issues with Notion
+- [GitHub](/integrations/github) - Link GitHub issues to Notion pages
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Workflows" icon="database" href="/workflows/notion">
+    Automate Notion database operations
+  </Card>
+  <Card title="Knowledge Base Setup" icon="book" href="/guides/notion-kb">
+    Build an AI-powered knowledge base
+  </Card>
+</CardGroup>

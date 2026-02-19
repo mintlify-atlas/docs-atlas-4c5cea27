@@ -1,0 +1,302 @@
+---
+title: 'Workflows API'
+description: 'Create and execute AI-powered automation workflows'
+---
+
+# Workflows API
+
+The Workflows API enables creation and execution of AI-powered automation workflows with triggers, steps, and community sharing.
+
+## Workflow Object
+
+<ResponseField name="id" type="string">
+  Unique workflow identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Workflow title
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Workflow description
+</ResponseField>
+
+<ResponseField name="trigger_config" type="object">
+  Trigger configuration
+  - `type`: Trigger type (manual, scheduled, event)
+  - `enabled`: Whether trigger is active
+  - `schedule`: Cron expression (for scheduled triggers)
+</ResponseField>
+
+<ResponseField name="steps" type="array">
+  Array of workflow steps with tool configurations
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Workflow status: `active`, `inactive`, `generating`, `failed`
+</ResponseField>
+
+<ResponseField name="is_public" type="boolean">
+  Whether workflow is published to community marketplace
+</ResponseField>
+
+## Endpoints
+
+### Create Workflow
+
+Create a new workflow.
+
+```bash
+POST /api/v1/workflows
+```
+
+```json Request
+{
+  "title": "Daily Email Summary",
+  "description": "Summarize important emails every morning",
+  "trigger_config": {
+    "type": "scheduled",
+    "enabled": true,
+    "schedule": "0 9 * * *",
+    "timezone": "America/New_York"
+  },
+  "generate_immediately": true
+}
+```
+
+### List Workflows
+
+Get all workflows for the current user.
+
+```bash
+GET /api/v1/workflows
+```
+
+### Get Workflow
+
+Get a specific workflow.
+
+```bash
+GET /api/v1/workflows/{workflow_id}
+```
+
+### Update Workflow
+
+Update workflow details.
+
+```bash
+PUT /api/v1/workflows/{workflow_id}
+```
+
+### Delete Workflow
+
+Delete a workflow.
+
+```bash
+DELETE /api/v1/workflows/{workflow_id}
+```
+
+## Workflow Execution
+
+### Execute Workflow
+
+Run a workflow immediately.
+
+```bash
+POST /api/v1/workflows/{workflow_id}/execute
+```
+
+```json Request
+{
+  "context": {
+    "user_input": "Generate report for Q1 2026"
+  }
+}
+```
+
+### Get Workflow Status
+
+Get current execution status.
+
+```bash
+GET /api/v1/workflows/{workflow_id}/status
+```
+
+```json Response
+{
+  "workflow_id": "wf_123",
+  "status": "running",
+  "current_step": 2,
+  "total_steps": 5,
+  "progress": 0.4
+}
+```
+
+### Get Execution History
+
+Get past workflow executions.
+
+```bash
+GET /api/v1/workflows/{workflow_id}/executions
+```
+
+<ParamField query="limit" type="integer" default="10">
+  Maximum executions to return
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Offset for pagination
+</ParamField>
+
+## Workflow Management
+
+### Activate Workflow
+
+Enable workflow trigger.
+
+```bash
+POST /api/v1/workflows/{workflow_id}/activate
+```
+
+### Deactivate Workflow
+
+Disable workflow trigger.
+
+```bash
+POST /api/v1/workflows/{workflow_id}/deactivate
+```
+
+### Regenerate Steps
+
+Regenerate workflow steps with AI.
+
+```bash
+POST /api/v1/workflows/{workflow_id}/regenerate-steps
+```
+
+```json Request
+{
+  "reason": "Need different approach",
+  "force_different_tools": true
+}
+```
+
+## Community Workflows
+
+### Explore Workflows
+
+Get featured/explore workflows.
+
+```bash
+GET /api/v1/workflows/explore
+```
+
+<ParamField query="limit" type="integer" default="25">
+  Number of workflows to return
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Offset for pagination
+</ParamField>
+
+### Community Workflows
+
+Get public community workflows.
+
+```bash
+GET /api/v1/workflows/community
+```
+
+### Get Public Workflow
+
+Get a public workflow by ID (no auth required).
+
+```bash
+GET /api/v1/workflows/public/{workflow_id}
+```
+
+### Publish Workflow
+
+Publish workflow to community marketplace.
+
+```bash
+POST /api/v1/workflows/{workflow_id}/publish
+```
+
+### Unpublish Workflow
+
+Remove workflow from marketplace.
+
+```bash
+POST /api/v1/workflows/{workflow_id}/unpublish
+```
+
+## Todo Workflows
+
+### Create from Todo
+
+Generate workflow from a todo item.
+
+```bash
+POST /api/v1/workflows/from-todo
+```
+
+```json Request
+{
+  "todo_id": "todo_123",
+  "todo_title": "Plan team offsite",
+  "todo_description": "Organize company retreat for 50 people"
+}
+```
+
+## Trigger Types
+
+### Manual Trigger
+
+Manually executed workflows.
+
+```json
+{
+  "type": "manual",
+  "enabled": true
+}
+```
+
+### Scheduled Trigger
+
+Cron-based scheduled workflows.
+
+```json
+{
+  "type": "scheduled",
+  "enabled": true,
+  "schedule": "0 9 * * 1-5",
+  "timezone": "America/New_York"
+}
+```
+
+### Event Trigger
+
+Event-based workflows (integration events).
+
+```json
+{
+  "type": "event",
+  "enabled": true,
+  "event_type": "gmail.new_email",
+  "filters": {
+    "from": "important@example.com"
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Goals API" icon="bullseye" href="/api/goals">
+    Track goals with AI roadmaps
+  </Card>
+  <Card title="Memory API" icon="brain" href="/api/memory">
+    Store contextual memories
+  </Card>
+</CardGroup>

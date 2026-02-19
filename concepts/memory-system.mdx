@@ -1,0 +1,695 @@
+---
+title: "Memory System"
+description: "How GAIA remembers, learns, and improves through dual memory architecture"
+---
+
+# Memory System
+
+GAIA's memory system is what makes it truly personal and continuously improving. Unlike traditional AI assistants that forget everything after each conversation, GAIA maintains two distinct memory types: **User Memory** (what it knows about you) and **Skill Memory** (what it has learned to do).
+
+## Dual Memory Architecture
+
+<CardGroup cols={2}>
+  <Card title="User Memory" icon="user" color="#3b82f6">
+    **What GAIA knows about YOU**
+    
+    - Personal preferences
+    - Contacts and relationships
+    - Work patterns and habits
+    - Important dates and events
+    - Project context
+    
+    *Stored per user in mem0 graph database*
+  </Card>
+  
+  <Card title="Skill Memory" icon="graduation-cap" color="#8b5cf6">
+    **What GAIA knows how to DO**
+    
+    - Procedural knowledge
+    - Optimal approaches
+    - Tool usage patterns
+    - Common gotchas
+    - Best practices
+    
+    *Stored per agent in MongoDB*
+  </Card>
+</CardGroup>
+
+<Note>
+**Critical Design:** These memory types are completely separate. User preferences never pollute skill knowledge, and procedural skills work across all users.
+</Note>
+
+## User Memory
+
+### Knowledge Graph Structure
+
+```python
+# From: apps/api/app/agents/memory/client.py:10-46
+
+class MemoryClientManager:
+    """Manages mem0 client with graph memory enabled."""
+    
+    async def get_client(self) -> AsyncMemoryClient:
+        client = AsyncMemoryClient(
+            api_key=settings.MEM0_API_KEY,
+            org_id=settings.MEM0_ORG_ID,
+            project_id=settings.MEM0_PROJECT_ID,
+        )
+        
+        # Enable graph memory for entity relationships
+        await client.project.update(enable_graph=True)
+        return client
+```
+
+### What Gets Stored
+
+<Tabs>
+  <Tab title="Personal Info">
+    ```json
+    {
+      "type": "preference",
+      "content": "User prefers morning meetings before 11am",
+      "confidence": 0.95,
+      "last_updated": "2024-12-10T09:30:00Z"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Relationships">
+    ```json
+    {
+      "type": "contact",
+      "entities": [
+        {
+          "name": "Sarah Johnson",
+          "role": "CEO at ClientX",
+          "email": "sarah@clientx.com",
+          "relationship": "client"
+        }
+      ],
+      "context": "Met at tech conference 2023"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Work Patterns">
+    ```json
+    {
+      "type": "habit",
+      "content": "User does deep work Tue/Thu mornings",
+      "supporting_data": [
+        "calendar_blocked_time",
+        "no_meetings_scheduled",
+        "focus_mode_enabled"
+      ]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Project Context">
+    ```json
+    {
+      "type": "project",
+      "project_name": "Q4 Product Launch",
+      "key_dates": {
+        "deadline": "2024-12-31",
+        "milestones": ["2024-12-15", "2024-12-22"]
+      },
+      "team_members": ["alice@team.com", "bob@team.com"],
+      "status": "in_progress"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Memory Storage Flow
+
+```python
+# From: apps/api/app/utils/memory_utils.py
+
+async def store_user_message_memory(
+    user_id: str,
+    message: str,
+    conversation_id: str
+):
+    """
+    Store user message in background (fire-and-forget).
+    
+    Extracts:
+    - Named entities (people, places, organizations)
+    - Dates and deadlines
+    - Preferences and opinions
+    - Action items and commitments
+    """
+    # Run as background task
+    # Non-blocking, doesn't slow down responses
+```
+
+<Steps>
+  <Step title="User Sends Message">
+    "I'm meeting with Sarah from ClientX next Tuesday to discuss the Q4 roadmap"
+  </Step>
+  
+  <Step title="Background Extraction">
+    ```python
+    # Asynchronously extract entities
+    entities = [
+      {"type": "person", "name": "Sarah", "org": "ClientX"},
+      {"type": "event", "date": "next Tuesday", "topic": "Q4 roadmap"},
+      {"type": "project", "name": "Q4 roadmap"}
+    ]
+    ```
+  </Step>
+  
+  <Step title="Graph Storage">
+    ```python
+    # Store in mem0 with relationships
+    await memory_client.add(
+      messages=[{"role": "user", "content": message}],
+      user_id=user_id,
+      metadata={"conversation_id": conversation_id}
+    )
+    ```
+  </Step>
+  
+  <Step title="Future Retrieval">
+    When you later say "What did Sarah and I discuss?", GAIA instantly recalls the Q4 roadmap meeting
+  </Step>
+</Steps>
+
+### Memory Search
+
+```python
+# From: apps/api/app/agents/tools/memory_tools.py
+
+@tool
+async def search_memory(
+    config: RunnableConfig,
+    query: str,
+    limit: int = 10
+) -> dict:
+    """
+    Search user's memory for relevant information.
+    
+    Examples:
+    - "What projects am I working on?"
+    - "Who is Sarah Johnson?"
+    - "What are my preferences for meetings?"
+    - "When is the Q4 deadline?"
+    """
+    # Semantic search across memory graph
+    # Returns contextual information with sources
+```
+
+## Skill Memory
+
+### Learning System
+
+```python
+# From: apps/api/app/agents/memory/skill_learning/service.py:29-94
+
+class SkillLearningService:
+    """Orchestrates skill extraction and storage."""
+    
+    async def learn_from_conversation(
+        self,
+        messages: List[AnyMessage],
+        agent_id: str,  # e.g., "gmail_agent", "twitter_agent"
+        session_id: Optional[str] = None,
+        executing_llm: Optional[ChatOpenAI] = None,
+    ):
+        """
+        Runs two extraction strategies in parallel:
+        1. LLM Extraction - Cheap model analyzes conversation
+        2. Self-Reflection - Executing LLM documents experience
+        """
+```
+
+### Dual Extraction Strategy
+
+<Accordion title="Learning Approaches">
+  <AccordionItem title="LLM Extraction (Observer)">
+    A separate, cheap LLM analyzes the conversation from outside:
+    
+    ```python
+    # From: apps/api/app/agents/memory/skill_learning/extractors/llm_extractor.py
+    
+    class LLMSkillExtractor:
+        """Analyzes conversation to extract skills."""
+        
+        async def extract(self, messages, agent_id, session_id):
+            # Looks at the conversation objectively
+            # Identifies patterns: "When user asks X, agent does Y"
+            # Extracts tool sequences that worked
+            # Notes what was efficient vs wasteful
+    ```
+    
+    **Advantages:**
+    - Can see the full conversation flow
+    - Identifies inefficiencies
+    - Cheaper to run (uses gpt-4o-mini)
+    
+    **Example Extraction:**
+    ```json
+    {
+      "trigger": "User asks to schedule a meeting",
+      "procedure": "Check calendar availability first, then propose times",
+      "tools_used": ["GOOGLE_CALENDAR_LIST_EVENTS", "GOOGLE_CALENDAR_CREATE_EVENT"],
+      "what_worked": "Checking conflicts before proposing times",
+      "gotchas": "Always confirm timezone with user"
+    }
+    ```
+  </AccordionItem>
+  
+  <AccordionItem title="Self-Reflection (Participant)">
+    The actual executing LLM reflects on its own experience:
+    
+    ```python
+    # From: apps/api/app/agents/memory/skill_learning/extractors/reflection.py
+    
+    class ReflectionExtractor:
+        """Executing LLM documents its experience."""
+        
+        async def extract(self, messages, agent_id, session_id):
+            # First-person perspective
+            # "I tried X, but Y worked better because..."
+            # Documents subtle insights from execution
+            # Knows internal reasoning that observer can't see
+    ```
+    
+    **Advantages:**
+    - Knows actual decision-making process
+    - Understands why certain approaches work
+    - Captures subtle insights
+    
+    **Example Reflection:**
+    ```json
+    {
+      "trigger": "Composing professional email response",
+      "optimal_approach": "Use formal tone matcher before generating",
+      "what_worked": "Analyzing recipient's previous emails for tone",
+      "what_didnt_work": "Generic templates felt impersonal",
+      "gotchas": "Check for email thread context before replying"
+    }
+    ```
+  </AccordionItem>
+</Accordion>
+
+### Skill Schema
+
+```python
+# From: apps/api/app/agents/memory/skill_learning/models.py
+
+class Skill(BaseModel):
+    # Core identification
+    trigger: str              # "When user asks to..."
+    procedure: str            # "Do this sequence..."
+    agent_id: str             # "gmail_agent"
+    
+    # Execution details
+    tools_used: List[str]     # ["GMAIL_SEARCH_MESSAGES", "GMAIL_SEND_EMAIL"]
+    
+    # Learning insights
+    what_worked: str          # "Searching history first provided context"
+    what_didnt_work: str      # "Direct reply without context felt abrupt"
+    gotchas: str              # "Always check for email threads"
+    optimal_approach: str     # "Search → Analyze → Draft → Review"
+    unnecessary_tools: List[str]  # Tools tried but not needed
+    
+    # Quality tracking
+    success_criteria: str     # "Email sent with proper context"
+    confidence_score: float   # 0.0 - 1.0
+    
+    # Metadata
+    session_id: str
+    learned_at: datetime
+    times_validated: int      # How many times this skill proved useful
+```
+
+### Skill Storage & Retrieval
+
+```python
+# From: apps/api/app/agents/memory/skill_learning/storage.py
+
+async def store_skills_batch(skills: List[Skill]) -> int:
+    """
+    Store multiple skills in MongoDB.
+    
+    Index on:
+    - agent_id (which agent learned this)
+    - trigger (semantic embeddings for search)
+    - tools_used (find by tool combinations)
+    - confidence_score (prioritize high-confidence skills)
+    """
+
+async def search_skills(
+    query: str,
+    agent_id: str,
+    limit: int = 5
+) -> SkillSearchResult:
+    """
+    Search for relevant skills using semantic similarity.
+    
+    Returns best matching procedures for current task.
+    """
+```
+
+### Skill Application Flow
+
+<Steps>
+  <Step title="User Request">
+    "Send a summary of today's meetings to my team"
+  </Step>
+  
+  <Step title="Skill Search">
+    ```python
+    # Agent searches its skill memory
+    skills = await skill_service.search_skills(
+      query="summarize meetings and send email",
+      agent_id="gmail_agent",
+      limit=5
+    )
+    ```
+  </Step>
+  
+  <Step title="Skill Injection">
+    ```python
+    # From: apps/api/app/agents/memory/skill_learning/service.py:183-242
+    
+    # Format skills for system prompt
+    prompt += """
+    ## Learned Procedures (gmail_agent):
+    
+    ### 1. Summarizing meetings and emailing team
+    First search calendar for today's events, extract key points from each,
+    generate structured summary, then compose email to team distribution list.
+    
+    **Tools:** GOOGLE_CALENDAR_LIST_EVENTS, GMAIL_COMPOSE_EMAIL
+    **Optimal approach:** Use calendar event descriptions for context
+    **Watch out for:** Include meeting recordings links if available
+    """
+    ```
+  </Step>
+  
+  <Step title="Enhanced Execution">
+    Agent executes with learned best practices, avoiding past mistakes and using proven approaches
+  </Step>
+  
+  <Step title="New Learning">
+    After execution, both extractors run to capture any new insights or improvements
+  </Step>
+</Steps>
+
+## Memory Learning Node
+
+```python
+# From: apps/api/app/agents/core/nodes/memory_learning_node.py
+
+async def memory_learning_node(
+    state: State,
+    config: RunnableConfig,
+    store: BaseStore
+) -> State:
+    """
+    End-of-graph hook that runs after every agent execution.
+    
+    Learns:
+    1. Skills (procedural knowledge) → MongoDB per agent
+    2. User memory (personal info) → mem0 per user
+    
+    Runs as fire-and-forget background task.
+    """
+    
+    # Extract user_id and agent_id from config
+    # Run both learning processes in parallel
+    await asyncio.gather(
+        skill_learning_service.learn_from_conversation(...),
+        memory_client.add(...)  # User memory
+    )
+```
+
+<Info>
+This node runs on **every** agent execution—both main agent and subagents. This means GAIA learns continuously from all interactions.
+</Info>
+
+## Memory Namespace Isolation
+
+### User Memory Namespace
+
+```python
+# Stored in mem0 with user_id as namespace
+await memory_client.add(
+    messages=[...],
+    user_id="user_123",  # Isolates this user's memories
+    metadata={...}
+)
+
+# Search only returns this user's memories
+results = await memory_client.search(
+    query="my preferences",
+    user_id="user_123"
+)
+```
+
+### Skill Memory Namespace
+
+```python
+# Stored in MongoDB with agent_id as namespace
+skill = Skill(
+    agent_id="gmail_agent",  # This skill is for gmail_agent only
+    trigger="compose professional email",
+    procedure="..."
+)
+
+# Search only returns skills for this specific agent
+skills = await search_skills(
+    query="send email",
+    agent_id="gmail_agent",  # Won't return twitter_agent skills
+    limit=5
+)
+```
+
+<Warning>
+**Critical Separation:** User memories are private per user. Skills are shared across all users of the same agent but isolated per agent type.
+</Warning>
+
+## Memory-Enhanced Prompts
+
+### System Prompt Injection
+
+```python
+# From: apps/api/app/agents/core/nodes/manage_system_prompts.py
+
+async def manage_system_prompts_node(state, config, store):
+    """
+    Injects relevant memories and skills into system prompt.
+    """
+    
+    user_id = config.get("user_id")
+    agent_id = config.get("agent_name")
+    
+    # Get user memories
+    memories = await memory_client.search(
+        query=state.query,
+        user_id=user_id,
+        limit=10
+    )
+    
+    # Get relevant skills
+    skills = await skill_service.search_skills(
+        query=state.query,
+        agent_id=agent_id,
+        limit=5
+    )
+    
+    # Build enhanced prompt
+    prompt = f"""
+    {base_system_prompt}
+    
+    ## User Context:
+    {format_memories(memories)}
+    
+    ## Learned Procedures:
+    {skill_service.format_skills_for_prompt(skills, agent_id)}
+    """
+```
+
+## Performance Optimization
+
+### Caching Strategy
+
+```python
+# User memory search is cached per conversation
+@cache(ttl=300)  # 5 minutes
+async def get_user_context(user_id: str, query: str):
+    """Cache prevents repeated mem0 API calls."""
+    
+# Skill search is cached per agent
+@cache(ttl=600)  # 10 minutes
+async def get_agent_skills(agent_id: str, query: str):
+    """Cache prevents repeated MongoDB queries."""
+```
+
+### Background Processing
+
+```python
+# From: apps/api/app/agents/core/agent.py:95-100
+
+# Memory storage is non-blocking
+task = asyncio.create_task(
+    store_user_message_memory(user_id, message, conversation_id)
+)
+_background_tasks.add(task)
+task.add_done_callback(_background_tasks.discard)
+
+# User gets instant response
+# Memory processing happens in background
+```
+
+## Memory Tools
+
+### Available to All Agents
+
+```python
+# From: apps/api/app/agents/tools/memory_tools.py
+
+MEMORY_TOOLS = [
+    search_memory,      # Search user's memory
+    list_memory,        # List all user memories
+    add_memory,         # Manually add memory
+    update_memory,      # Update existing memory
+    delete_memory,      # Remove memory
+]
+
+# These tools are included in every agent's toolkit
+```
+
+### Example Usage
+
+<CodeGroup>
+```python Search Memory
+# Agent automatically searches memory when needed
+result = await search_memory(
+    query="client meetings this week",
+    user_id="user_123",
+    limit=5
+)
+
+# Returns:
+{
+  "memories": [
+    "Meeting with ClientX scheduled for Tuesday 2pm",
+    "ClientX CEO is Sarah Johnson (sarah@clientx.com)",
+    "Previous meeting notes: discussed Q4 roadmap"
+  ]
+}
+```
+
+```python Add Memory
+# User can explicitly add memories
+await add_memory(
+    content="Sarah prefers email over Slack for formal communications",
+    user_id="user_123",
+    metadata={"category": "communication_preferences"}
+)
+```
+</CodeGroup>
+
+## Privacy & Data Control
+
+### User Control
+
+<Accordion title="Memory Management">
+  <AccordionItem title="View All Memories">
+    Users can see everything GAIA has stored about them through the Memory dashboard.
+  </AccordionItem>
+  
+  <AccordionItem title="Edit Memories">
+    Incorrect memories can be corrected or removed at any time.
+  </AccordionItem>
+  
+  <AccordionItem title="Export Data">
+    Full memory export available in JSON format.
+  </AccordionItem>
+  
+  <AccordionItem title="Delete Everything">
+    Complete memory wipe removes all user memories permanently.
+  </AccordionItem>
+</Accordion>
+
+### Data Retention
+
+```python
+# Memory retention policies
+class MemoryRetention:
+    USER_MEMORIES = "indefinite"  # Until user deletes
+    SKILL_MEMORIES = "indefinite"  # Continuous improvement
+    
+    # But confidence degrades over time
+    async def decay_confidence(skill: Skill):
+        """Lower confidence score if not validated recently."""
+        days_since_validation = (now - skill.last_validated_at).days
+        if days_since_validation > 90:
+            skill.confidence_score *= 0.9  # 10% decay
+```
+
+## Memory Analytics
+
+### Learning Metrics
+
+```typescript
+// Available in dashboard
+interface MemoryStats {
+  user_memories: {
+    total: number;
+    categories: Record<string, number>;
+    last_updated: string;
+  };
+  
+  skills_learned: {
+    total: number;
+    by_agent: Record<string, number>;
+    avg_confidence: number;
+  };
+  
+  memory_usage: {
+    queries_this_week: number;
+    memories_used: number;
+    skills_applied: number;
+  };
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Correct Mistakes Early" icon="pen">
+    If GAIA remembers something wrong, correct it immediately. Bad memories compound over time.
+  </Card>
+  
+  <Card title="Be Explicit" icon="message">
+    Say "Remember that..." for important facts you want stored permanently.
+  </Card>
+  
+  <Card title="Provide Context" icon="layer-group">
+    "Sarah from ClientX" is better than just "Sarah" for entity recognition.
+  </Card>
+  
+  <Card title="Review Periodically" icon="calendar-check">
+    Check your memory dashboard monthly to prune outdated information.
+  </Card>
+</CardGroup>
+
+## Related Concepts
+
+- [Proactive AI](/concepts/proactive-ai) - How memory enables proactive actions
+- [Workflows](/concepts/workflows) - Skills learned from workflow executions
+- [Agents](/concepts/agents) - Each agent has its own skill memory
+- [Integrations](/concepts/integrations) - Memory enriched by integration data
+
+---
+
+**Next Steps:**
+- [View your memory dashboard →](#)
+- [Understand agent architecture →](/concepts/agents)
+- [Explore proactive features →](/concepts/proactive-ai)

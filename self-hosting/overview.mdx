@@ -1,0 +1,156 @@
+---
+title: Self-Hosting Overview
+description: Learn how to self-host GAIA on your own infrastructure for complete control and privacy
+---
+
+## Introduction
+
+Self-hosting GAIA gives you complete control over your personal AI assistant. This guide will help you deploy GAIA on your own infrastructure, whether you're running it locally for development or deploying to production.
+
+## Why Self-Host?
+
+- **Data Privacy**: Keep all your data on your own servers
+- **Customization**: Modify and extend GAIA to fit your specific needs
+- **Cost Control**: Avoid recurring subscription fees for large teams
+- **Compliance**: Meet organizational security and compliance requirements
+- **Local Development**: Run GAIA entirely offline for development
+
+## Architecture Overview
+
+GAIA is built as a full-stack monorepo with the following components:
+
+### Core Services
+
+- **API Backend**: FastAPI application with LangGraph agents
+- **Web Application**: Next.js frontend
+- **Desktop Application**: Electron app (optional)
+- **Mobile Application**: React Native app (optional)
+
+### Infrastructure Dependencies
+
+- **PostgreSQL**: Primary relational database for user data and application state
+- **MongoDB**: Document storage for flexible data and conversation history
+- **Redis**: Caching and task queue management
+- **ChromaDB**: Vector database for embeddings and semantic search
+- **RabbitMQ**: Message broker for inter-service communication
+
+### Optional Services
+
+- **Voice Agent**: Real-time voice interaction capabilities
+- **Bot Workers**: Discord, Slack, and Telegram integrations
+
+## Deployment Options
+
+### Docker Compose (Recommended)
+
+The easiest way to self-host GAIA is using Docker Compose. This approach bundles all services with their dependencies in containers.
+
+- **Best for**: Quick setup, development, small deployments
+- **Requirements**: Docker and Docker Compose
+- **Setup time**: 15-30 minutes
+
+### Kubernetes
+
+For production deployments at scale, Kubernetes provides orchestration, auto-scaling, and high availability.
+
+- **Best for**: Large teams, production deployments, high availability
+- **Requirements**: Kubernetes cluster, kubectl
+- **Setup time**: 1-2 hours
+
+### Manual Installation
+
+Install and configure each service individually on bare metal or VMs.
+
+- **Best for**: Custom infrastructure, specific requirements
+- **Requirements**: Linux server, system administration experience
+- **Setup time**: 2-4 hours
+
+## Prerequisites
+
+### Hardware Requirements
+
+**Minimum Requirements**:
+- 4 CPU cores
+- 8 GB RAM
+- 50 GB storage
+- Stable internet connection
+
+**Recommended for Production**:
+- 8+ CPU cores
+- 16+ GB RAM
+- 200+ GB SSD storage
+- High-bandwidth internet connection
+
+### Software Requirements
+
+- **Docker**: Version 24.0 or higher
+- **Docker Compose**: Version 2.0 or higher
+- **Git**: For cloning the repository
+- **Domain name**: (Optional) For production deployments with SSL
+
+### External Service Accounts
+
+GAIA requires several API keys for full functionality:
+
+**Required**:
+- **WorkOS**: Authentication and user management
+- **OpenAI**: LLM capabilities
+
+**Recommended**:
+- **Google OAuth**: Additional authentication option
+- **Composio**: Integration platform
+- **Tavily**: Web search capabilities
+
+**Optional** (based on features needed):
+- **AssemblyAI**: Audio transcription
+- **ElevenLabs**: Text-to-speech
+- **Deepgram**: Speech-to-text
+- **Cloudinary**: Media storage
+- **Resend**: Email notifications
+
+<Warning>
+  While GAIA can run without optional API keys, some features will be disabled. At minimum, you need WorkOS and OpenAI API keys for basic functionality.
+</Warning>
+
+## Quick Start Path
+
+Follow this learning path to get GAIA running:
+
+<Steps>
+  <Step title="Docker Setup">
+    Install Docker and Docker Compose, then clone the GAIA repository.
+    
+    [Continue to Docker Setup →](/self-hosting/docker-setup)
+  </Step>
+  
+  <Step title="Environment Configuration">
+    Configure all required environment variables and API keys.
+    
+    [Continue to Environment Variables →](/self-hosting/environment-variables)
+  </Step>
+  
+  <Step title="Database Setup">
+    Initialize and configure PostgreSQL, MongoDB, Redis, and ChromaDB.
+    
+    [Continue to Database Setup →](/self-hosting/database-setup)
+  </Step>
+  
+  <Step title="Production Deployment">
+    Deploy GAIA to production with SSL, monitoring, and backups.
+    
+    [Continue to Production Deployment →](/self-hosting/production-deployment)
+  </Step>
+</Steps>
+
+## Getting Help
+
+If you encounter issues during self-hosting:
+
+- Check the [troubleshooting sections](/self-hosting/docker-setup#troubleshooting) in each guide
+- Search or ask in our [Discord community](https://discord.heygaia.io)
+- Review [GitHub Issues](https://github.com/theexperiencecompany/gaia/issues) for known problems
+- Contact support at contact@heygaia.io
+
+## Next Steps
+
+Ready to get started? Head to the [Docker Setup guide](/self-hosting/docker-setup) to begin deploying GAIA.

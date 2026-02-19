@@ -1,0 +1,377 @@
+---
+title: 'Integrations API'
+description: 'Connect and manage third-party services and MCP integrations'
+---
+
+# Integrations API
+
+The Integrations API enables connection and management of third-party services including OAuth integrations, MCP servers, and custom integrations.
+
+## Integration Types
+
+GAIA supports three types of integrations:
+
+### Platform Integrations
+Pre-configured integrations managed by GAIA (Gmail, Calendar, Notion, Slack, etc.)
+
+### MCP Integrations
+Model Context Protocol servers for extending AI capabilities
+
+### Custom Integrations
+User-created MCP integrations for personal or team use
+
+## Integration Object
+
+<ResponseField name="integration_id" type="string">
+  Unique integration identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Integration display name
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Integration description
+</ResponseField>
+
+<ResponseField name="category" type="string">
+  Category: productivity, communication, developer, etc.
+</ResponseField>
+
+<ResponseField name="managed_by" type="string">
+  Management type: `self`, `composio`, `mcp`, or `internal`
+</ResponseField>
+
+<ResponseField name="source" type="string">
+  Source: `platform` (pre-configured) or `custom` (user-created)
+</ResponseField>
+
+<ResponseField name="requires_auth" type="boolean">
+  Whether authentication is required
+</ResponseField>
+
+<ResponseField name="auth_type" type="string">
+  Authentication type: `none`, `oauth`, or `bearer`
+</ResponseField>
+
+<ResponseField name="is_featured" type="boolean">
+  Whether integration is featured in marketplace
+</ResponseField>
+
+<ResponseField name="tools" type="array">
+  Array of available tools/capabilities
+</ResponseField>
+
+## Endpoints
+
+### List Marketplace Integrations
+
+Get available integrations from marketplace.
+
+```bash
+GET /api/v1/integrations/marketplace
+```
+
+<ParamField query="category" type="string">
+  Filter by category
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search query
+</ParamField>
+
+```json Response
+{
+  "featured": [
+    {
+      "integration_id": "gmail",
+      "name": "Gmail",
+      "description": "Send and manage emails",
+      "category": "communication",
+      "managed_by": "composio",
+      "source": "platform",
+      "requires_auth": true,
+      "auth_type": "oauth",
+      "is_featured": true,
+      "tools": [
+        {"name": "send_email", "description": "Send an email"},
+        {"name": "search_emails", "description": "Search emails"}
+      ]
+    }
+  ],
+  "integrations": [...],
+  "total": 50
+}
+```
+
+### List User Integrations
+
+Get integrations added to user's workspace.
+
+```bash
+GET /api/v1/integrations
+```
+
+```json Response
+{
+  "integrations": [
+    {
+      "integration_id": "gmail",
+      "status": "connected",
+      "created_at": "2026-02-15T10:00:00Z",
+      "connected_at": "2026-02-15T10:05:00Z",
+      "integration": {
+        "integration_id": "gmail",
+        "name": "Gmail",
+        "description": "Send and manage emails",
+        "category": "communication",
+        "managed_by": "composio",
+        "requires_auth": true
+      }
+    }
+  ],
+  "total": 5
+}
+```
+
+### Add Integration
+
+Add an integration to user's workspace.
+
+```bash
+POST /api/v1/integrations
+```
+
+```json Request
+{
+  "integration_id": "notion"
+}
+```
+
+```json Response
+{
+  "integration_id": "notion",
+  "status": "created",
+  "message": "Integration added. Connect to start using."
+}
+```
+
+### Connect Integration
+
+Connect/authenticate an integration.
+
+```bash
+POST /api/v1/integrations/{integration_id}/connect
+```
+
+```json Request
+{
+  "redirect_path": "/integrations",
+  "bearer_token": "optional_api_key"
+}
+```
+
+For OAuth integrations, response includes redirect URL:
+
+```json Response
+{
+  "status": "redirect",
+  "integration_id": "gmail",
+  "redirect_url": "https://accounts.google.com/o/oauth2/v2/auth?..."
+}
+```
+
+For bearer token integrations, connection is immediate:
+
+```json Response
+{
+  "status": "connected",
+  "integration_id": "custom_mcp",
+  "tools_count": 5
+}
+```
+
+### Disconnect Integration
+
+Disconnect an integration.
+
+```bash
+POST /api/v1/integrations/{integration_id}/disconnect
+```
+
+### Remove Integration
+
+Remove integration from workspace.
+
+```bash
+DELETE /api/v1/integrations/{integration_id}
+```
+
+## Custom MCP Integrations
+
+### Create Custom Integration
+
+Create a custom MCP integration.
+
+```bash
+POST /api/v1/integrations/custom
+```
+
+```json Request
+{
+  "name": "My API",
+  "description": "Custom API integration",
+  "category": "custom",
+  "server_url": "https://mcp.example.com",
+  "requires_auth": true,
+  "auth_type": "bearer",
+  "bearer_token": "api_key_12345",
+  "is_public": false
+}
+```
+
+<ParamField body="name" type="string" required>
+  Integration name (1-100 characters)
+</ParamField>
+
+<ParamField body="server_url" type="string" required>
+  MCP server URL
+</ParamField>
+
+<ParamField body="requires_auth" type="boolean" default="false">
+  Whether authentication is required
+</ParamField>
+
+<ParamField body="auth_type" type="string">
+  Authentication type: `none`, `oauth`, or `bearer`
+</ParamField>
+
+<ParamField body="bearer_token" type="string">
+  Bearer token/API key (for bearer auth)
+</ParamField>
+
+<ParamField body="is_public" type="boolean" default="false">
+  Publish to community marketplace
+</ParamField>
+
+### Update Custom Integration
+
+Update a custom integration.
+
+```bash
+PUT /api/v1/integrations/custom/{integration_id}
+```
+
+```json Request
+{
+  "name": "Updated Name",
+  "description": "Updated description",
+  "server_url": "https://new-url.example.com"
+}
+```
+
+### Delete Custom Integration
+
+Delete a custom integration.
+
+```bash
+DELETE /api/v1/integrations/custom/{integration_id}
+```
+
+## Community Marketplace
+
+### Browse Community Integrations
+
+Get public integrations shared by the community.
+
+```bash
+GET /api/v1/integrations/community
+```
+
+<ParamField query="category" type="string">
+  Filter by category
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search query
+</ParamField>
+
+<ParamField query="sort" type="string">
+  Sort by: `popular`, `recent`, `name`
+</ParamField>
+
+### Get Public Integration
+
+Get details of a public integration.
+
+```bash
+GET /api/v1/integrations/public/{slug}
+```
+
+### Clone Integration
+
+Clone a public integration to your workspace.
+
+```bash
+POST /api/v1/integrations/public/{integration_id}/clone
+```
+
+## Integration Status
+
+Integrations can have two status values:
+
+- **created** - Added to workspace but not authenticated
+- **connected** - Authenticated and ready to use
+
+## OAuth Flow
+
+For OAuth integrations:
+
+1. Call `/integrations/{id}/connect`
+2. Redirect user to `redirect_url` from response
+3. User authenticates with provider
+4. Provider redirects to GAIA callback
+5. Integration status updates to `connected`
+
+## MCP Protocol
+
+Custom MCP integrations must implement the Model Context Protocol specification:
+
+- `/tools` endpoint - List available tools
+- `/call` endpoint - Execute tool calls
+- Health check endpoint
+
+See [MCP Documentation](https://modelcontextprotocol.io) for details.
+
+## Integration Tools
+
+Once connected, integrations provide tools that can be used by the AI:
+
+```javascript
+// Example: Using integration tool via chat
+{
+  "message": "Search my Notion for project notes",
+  // AI automatically uses notion.search_pages tool
+}
+```
+
+## Rate Limiting
+
+Integration connection operations are rate limited:
+
+- **Free:** 10 connections/hour
+- **Pro:** 50 connections/hour
+- **Team:** 200 connections/hour
+
+See [Rate Limits](/api/rate-limits) for details.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Chat API" icon="comments" href="/api/chat">
+    Use integrations in chat
+  </Card>
+  <Card title="Workflows API" icon="diagram-project" href="/api/workflows">
+    Build integration workflows
+  </Card>
+</CardGroup>

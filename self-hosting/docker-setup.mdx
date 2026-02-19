@@ -1,0 +1,490 @@
+---
+title: Docker Setup
+description: Deploy GAIA using Docker Compose for development or production environments
+---
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- Docker 24.0 or higher installed
+- Docker Compose 2.0 or higher installed
+- Git installed
+- At least 8 GB of available RAM
+- At least 50 GB of available disk space
+
+## Clone the Repository
+
+First, clone the GAIA repository:
+
+```bash
+git clone https://github.com/theexperiencecompany/gaia.git
+cd gaia
+```
+
+## Development Setup
+
+For local development, GAIA provides a development-focused Docker Compose configuration.
+
+<Steps>
+  <Step title="Navigate to Docker directory">
+    ```bash
+    cd infra/docker
+    ```
+  </Step>
+
+  <Step title="Create environment file">
+    Copy the example environment file:
+    
+    ```bash
+    cp ../../apps/api/.env.example ../../apps/api/.env
+    ```
+    
+    Edit `apps/api/.env` with your configuration. See [Environment Variables](/self-hosting/environment-variables) for details.
+  </Step>
+
+  <Step title="Start all services">
+    Start all infrastructure services (databases, message queues):
+    
+    ```bash
+    docker compose up -d
+    ```
+    
+    This will start:
+    - PostgreSQL (port 5432)
+    - MongoDB (port 27017)
+    - Redis (port 6379)
+    - ChromaDB (port 8080)
+    - RabbitMQ (ports 5672, 15672)
+    - Mongo Express (port 8083) - Database UI
+  </Step>
+
+  <Step title="Start backend services (optional)">
+    To run the backend API and workers in Docker:
+    
+    ```bash
+    docker compose --profile backend up -d
+    ```
+    
+    Or for all services including workers:
+    
+    ```bash
+    docker compose --profile all up -d
+    ```
+  </Step>
+
+  <Step title="Verify services are running">
+    Check that all containers are healthy:
+    
+    ```bash
+    docker compose ps
+    ```
+    
+    All services should show "healthy" or "running" status.
+  </Step>
+</Steps>
+
+### Development Profiles
+
+The development `docker-compose.yml` supports multiple profiles:
+
+- **Default** (no profile): Infrastructure services only (databases, queues)
+- **`backend`**: Infrastructure + API backend + voice agent
+- **`worker`**: Infrastructure + ARQ worker
+- **`voice`**: Infrastructure + voice agent worker
+- **`all`**: All services including backend, worker, and voice agent
+
+```bash
+# Infrastructure only
+docker compose up -d
+
+# Infrastructure + backend
+docker compose --profile backend up -d
+
+# Infrastructure + worker
+docker compose --profile worker up -d
+
+# Everything
+docker compose --profile all up -d
+```
+
+## Production Setup
+
+For production deployments, use the production Docker Compose configuration which uses pre-built images from GitHub Container Registry.
+
+<Steps>
+  <Step title="Navigate to Docker directory">
+    ```bash
+    cd infra/docker
+    ```
+  </Step>
+
+  <Step title="Create environment file">
+    ```bash
+    cp ../../apps/api/.env.example ../../apps/api/.env
+    ```
+    
+    <Warning>
+      For production, ensure you:
+      - Set `ENV=production`
+      - Use strong, unique passwords for all services
+      - Configure all required API keys
+      - Set proper `HOST` and `FRONTEND_URL` values
+    </Warning>
+  </Step>
+
+  <Step title="Pull latest images">
+    ```bash
+    docker compose -f docker-compose.prod.yml pull
+    ```
+  </Step>
+
+  <Step title="Start production services">
+    Start all services:
+    
+    ```bash
+    docker compose -f docker-compose.prod.yml up -d
+    ```
+    
+    For backend services only:
+    
+    ```bash
+    docker compose -f docker-compose.prod.yml --profile backend-only up -d
+    ```
+    
+    To include voice agent:
+    
+    ```bash
+    docker compose -f docker-compose.prod.yml --profile voice-agent up -d
+    ```
+  </Step>
+
+  <Step title="Verify deployment">
+    Check service health:
+    
+    ```bash
+    docker compose -f docker-compose.prod.yml ps
+    curl http://localhost:8000/health
+    ```
+    
+    You should receive a healthy response from the API.
+  </Step>
+</Steps>
+
+## Docker Compose Configuration
+
+### Development Configuration
+
+The development setup includes:
+
+```yaml
+services:
+  # API Backend with hot reload
+  gaia-backend:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "8000:80"
+    volumes:
+      - ../../apps/api/app:/app/apps/api/app  # Hot reload
+    depends_on:
+      - chromadb
+      - postgres
+      - redis
+      - mongo
+
+  # PostgreSQL
+  postgres:
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # MongoDB
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  # Redis
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ChromaDB
+  chromadb:
+    image: chromadb/chroma:1.0.0
+    ports:
+      - "8080:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - PERSIST_DIRECTORY=/chroma/chroma
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # ARQ Worker
+  arq_worker:
+    image: gaia
+    command: ["uv", "run", "python", "-m", "arq", "app.worker.WorkerSettings"]
+    environment:
+      - WORKER_TYPE=arq_worker
+    depends_on:
+      - redis
+```
+
+### Production Configuration
+
+Production uses pre-built images and optimized settings:
+
+```yaml
+services:
+  gaia-backend:
+    image: ghcr.io/theexperiencecompany/gaia:latest
+    command:
+      [
+        "uv",
+        "run",
+        "--group",
+        "backend",
+        "python",
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "80",
+        "--workers",
+        "1",
+      ]
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WORKER_TYPE=main_app
+    restart: on-failure
+```
+
+## Managing Services
+
+### View Logs
+
+View logs for all services:
+```bash
+docker compose logs -f
+```
+
+View logs for specific service:
+```bash
+docker compose logs -f gaia-backend
+```
+
+### Restart Services
+
+Restart all services:
+```bash
+docker compose restart
+```
+
+Restart specific service:
+```bash
+docker compose restart gaia-backend
+```
+
+### Stop Services
+
+Stop all services:
+```bash
+docker compose down
+```
+
+Stop and remove volumes (deletes all data):
+```bash
+docker compose down -v
+```
+
+<Warning>
+  Using `docker compose down -v` will permanently delete all data including databases. Only use this for complete reset.
+</Warning>
+
+### Update to Latest Version
+
+For production deployments:
+
+```bash
+# Pull latest images
+docker compose -f docker-compose.prod.yml pull
+
+# Restart services with new images
+docker compose -f docker-compose.prod.yml up -d
+```
+
+For development builds:
+
+```bash
+# Rebuild images
+docker compose build
+
+# Restart services
+docker compose up -d
+```
+
+## Accessing Services
+
+Once running, you can access:
+
+- **GAIA API**: http://localhost:8000
+- **API Health Check**: http://localhost:8000/health
+- **API Docs**: http://localhost:8000/docs
+- **ChromaDB**: http://localhost:8080
+- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
+- **Mongo Express**: http://localhost:8083 (admin/password)
+- **PostgreSQL**: localhost:5432
+- **MongoDB**: localhost:27017
+- **Redis**: localhost:6379
+
+## Troubleshooting
+
+### Port Already in Use
+
+If you see "port is already allocated" errors:
+
+```bash
+# Check what's using the port
+sudo lsof -i :8000
+
+# Stop the conflicting service or modify ports in docker-compose.yml
+```
+
+### Container Unhealthy
+
+If containers fail health checks:
+
+```bash
+# Check logs for errors
+docker compose logs gaia-backend
+
+# Inspect container
+docker inspect gaia-backend
+
+# Restart the unhealthy container
+docker compose restart gaia-backend
+```
+
+### Database Connection Issues
+
+If the API can't connect to databases:
+
+1. Verify all database containers are healthy:
+   ```bash
+   docker compose ps
+   ```
+
+2. Check environment variables in `.env`:
+   ```bash
+   cat ../../apps/api/.env | grep -E "(POSTGRES|MONGO|REDIS|CHROMADB)"
+   ```
+
+3. Ensure database URLs use container names, not localhost:
+   ```
+   POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/langgraph
+   MONGO_DB=mongodb://mongo:27017/gaia
+   REDIS_URL=redis://redis:6379
+   CHROMADB_HOST=chromadb
+   ```
+
+### Out of Memory
+
+If containers are killed due to OOM:
+
+1. Check available memory:
+   ```bash
+   docker stats
+   ```
+
+2. Increase Docker memory limit in Docker Desktop settings or system resources
+
+3. Reduce running services by using profiles:
+   ```bash
+   docker compose --profile backend up -d
+   ```
+
+### Build Failures
+
+If image builds fail:
+
+```bash
+# Clear Docker build cache
+docker builder prune -a
+
+# Rebuild without cache
+docker compose build --no-cache
+```
+
+### Voice Agent Issues
+
+If voice agent fails to start:
+
+1. Voice agent requires significant resources and downloads ML models on first run
+2. Ensure at least 4GB RAM is available
+3. Check logs for model download progress:
+   ```bash
+   docker compose logs -f voice-agent-worker
+   ```
+
+## Performance Optimization
+
+### Resource Limits
+
+Add resource limits to prevent any single service from consuming all resources:
+
+```yaml
+services:
+  gaia-backend:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+```
+
+### Volume Optimization
+
+For better performance, use named volumes instead of bind mounts in production:
+
+```yaml
+volumes:
+  app_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /path/to/fast/storage
+```
+
+## Next Steps
+
+Now that Docker is set up, proceed to:
+- [Environment Variables Configuration](/self-hosting/environment-variables)
+- [Database Setup](/self-hosting/database-setup)
+- [Production Deployment](/self-hosting/production-deployment)

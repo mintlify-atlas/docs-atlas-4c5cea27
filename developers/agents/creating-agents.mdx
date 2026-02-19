@@ -1,0 +1,292 @@
+---
+title: Creating LangGraph Agents
+description: Learn how to build custom LangGraph agents in GAIA with tools, memory, and checkpointing
+---
+
+GAIA uses [LangGraph](https://langchain-ai.github.io/langgraph/) for orchestrating AI agents. This guide covers creating new agents with tools, state management, and graph compilation.
+
+## Agent Architecture
+
+GAIA's agent system consists of two main agents:
+
+- **Comms Agent**: Handles user interaction with natural language responses
+- **Executor Agent**: Manages task execution with full tool access
+
+### Core Components
+
+Every agent requires:
+
+1. **State**: Defines the data structure passed between nodes
+2. **Graph Builder**: Constructs the agent workflow
+3. **Tools**: Functions the agent can call
+4. **Prompts**: System instructions for the LLM
+5. **Checkpointer**: Persists conversation state
+
+## Creating a Basic Agent
+
+### 1. Define State
+
+Create a state class in `app/agents/core/state.py`:
+
+```python
+from typing import Annotated, List, Optional
+from langchain_core.messages import AnyMessage
+from langgraph.graph import add_messages
+from pydantic import BaseModel, Field
+from collections.abc import MutableMapping
+
+class DictLikeModel(BaseModel, MutableMapping):
+    """Base model that acts like a dictionary."""
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+    def __delitem__(self, key):
+        delattr(self, key)
+
+    def __len__(self):
+        return len(self.__dict__)
+
+class State(DictLikeModel):
+    """Agent state with message history and context."""
+    query: str = ""
+    messages: Annotated[List[AnyMessage], add_messages] = Field(
+        default_factory=list
+    )
+    current_datetime: Optional[str] = None
+    mem0_user_id: Optional[str] = None
+    memories: List[str] = Field(default_factory=list)
+    memories_stored: bool = False
+    conversation_id: Optional[str] = None
+```
+
+### 2. Build the Graph
+
+Create a graph builder in `app/agents/core/graph_builder/`:
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+from typing import Optional
+
+from app.agents.core.graph_builder.checkpointer_manager import (
+    get_checkpointer_manager,
+)
+from app.agents.core.nodes import (
+    manage_system_prompts_node,
+    trim_messages_node,
+)
+from app.agents.llm.client import init_llm
+from app.override.langgraph_bigtool.create_agent import create_agent
+from langchain_core.language_models import LanguageModelLike
+from langgraph.checkpoint.memory import InMemorySaver
+
+@asynccontextmanager
+async def build_custom_graph(
+    chat_llm: Optional[LanguageModelLike] = None,
+    in_memory_checkpointer: bool = False,
+):
+    """Build a custom agent graph."""
+    if chat_llm is None:
+        chat_llm = init_llm()
+
+    # Define tools for your agent
+    tool_registry = {
+        "my_tool": my_custom_tool,
+    }
+
+    # Get tool store
+    from app.agents.tools.core.store import get_tools_store
+    store = await get_tools_store()
+
+    # Create agent with tools and hooks
+    builder = create_agent(
+        llm=chat_llm,
+        agent_name="custom_agent",
+        tool_registry=tool_registry,
+        disable_retrieve_tools=False,
+        initial_tool_ids=["my_tool"],
+        pre_model_hooks=[
+            manage_system_prompts_node,
+            trim_messages_node,
+        ],
+    )
+
+    # Setup checkpointer
+    checkpointer_manager = await get_checkpointer_manager()
+
+    if in_memory_checkpointer or not checkpointer_manager:
+        checkpointer = InMemorySaver()
+    else:
+        checkpointer = checkpointer_manager.get_checkpointer()
+
+    # Compile and yield graph
+    graph = builder.compile(checkpointer=checkpointer, store=store)
+    yield graph
+```
+
+### 3. Register with Lazy Provider
+
+Use the lazy provider pattern to register your agent:
+
+```python
+from app.core.lazy_loader import MissingKeyStrategy, lazy_provider
+from app.config.loggers import app_logger as logger
+
+@lazy_provider(
+    name="custom_agent",
+    required_keys=[],
+    strategy=MissingKeyStrategy.WARN,
+    auto_initialize=False,
+)
+async def build_custom_agent():
+    """Build and return the custom agent."""
+    logger.debug("Building custom agent with lazy providers")
+
+    async with build_custom_graph() as graph:
+        logger.info("Custom agent built successfully")
+    return graph
+```
+
+### 4. Register in Graph Manager
+
+Add your agent to `app/agents/core/graph_manager.py`:
+
+```python
+from app.agents.core.graph_manager import GraphManager
+
+# In your initialization code
+GraphManager.set_graph(custom_agent_graph, "custom_agent")
+```
+
+## Agent Execution Patterns
+
+GAIA provides two execution modes:
+
+### Streaming Mode
+
+For real-time chat interfaces:
+
+```python
+async def call_agent(
+    request: MessageRequestWithHistory,
+    conversation_id: str,
+    user: dict,
+    user_time: datetime,
+    user_model_config: Optional[ModelConfig] = None,
+) -> AsyncGenerator[str, None]:
+    """Execute agent with SSE streaming."""
+    graph, initial_state, config = await _core_agent_logic(
+        request, conversation_id, user, user_time, user_model_config
+    )
+
+    return execute_graph_streaming(graph, initial_state, config)
+```
+
+### Silent Mode
+
+For background processing:
+
+```python
+async def call_agent_silent(
+    request: MessageRequestWithHistory,
+    conversation_id: str,
+    user: dict,
+    user_time: datetime,
+) -> tuple[str, dict]:
+    """Execute agent without streaming."""
+    graph, initial_state, config = await _core_agent_logic(
+        request, conversation_id, user, user_time
+    )
+
+    return await execute_graph_silent(graph, initial_state, config)
+```
+
+## Node Hooks
+
+Add custom logic at different execution stages:
+
+### Pre-Model Hooks
+
+Run before LLM invocation:
+
+```python
+pre_model_hooks=[
+    filter_messages_node,      # Filter message history
+    manage_system_prompts_node, # Inject system prompts
+    trim_messages_node,        # Limit context window
+]
+```
+
+### End-Graph Hooks
+
+Run after agent completes:
+
+```python
+end_graph_hooks=[
+    follow_up_actions_node,  # Suggest next actions
+]
+```
+
+## Memory Management
+
+Integrate memory into your agent:
+
+```python
+from app.utils.memory_utils import store_user_message_memory
+import asyncio
+
+# Store memory in background
+if user_id and request.message:
+    task = asyncio.create_task(
+        store_user_message_memory(
+            user_id, request.message, conversation_id
+        )
+    )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+```
+
+## Configuration
+
+Build agent config with user context:
+
+```python
+from app.helpers.agent_helpers import build_agent_config
+
+config = build_agent_config(
+    conversation_id=conversation_id,
+    user=user,
+    user_time=user_time,
+    user_model_config=user_model_config,
+    agent_name="custom_agent",
+    selected_tool=request.selectedTool,
+    tool_category=request.toolCategory,
+)
+```
+
+<Warning>
+**Important Guidelines**:
+- Always use type hints for function parameters and return values
+- Keep agent logic in separate modules by responsibility
+- Use lazy providers for graph initialization
+- Handle errors gracefully with try-except blocks
+- Log agent actions for debugging
+</Warning>
+
+## Testing Your Agent
+
+See [Testing Agents](/developers/agents/testing-agents) for comprehensive testing strategies.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Tools" icon="wrench" href="/developers/agents/creating-tools">
+    Learn how to build custom tools for your agents
+  </Card>
+  <Card title="Creating Prompts" icon="message" href="/developers/agents/creating-prompts">
+    Master prompt engineering for agent behavior
+  </Card>
+</CardGroup>

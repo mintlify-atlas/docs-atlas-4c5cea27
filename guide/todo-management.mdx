@@ -1,0 +1,292 @@
+---
+title: "Todo Management"
+description: "Organize your tasks and projects with GAIA's intelligent todo system"
+---
+
+## Overview
+
+GAIA's todo management system helps you organize tasks, track progress, and stay productive. You can create todos manually or let GAIA create them for you through natural language commands.
+
+## Creating todos
+
+### Manual creation
+
+<Steps>
+  <Step title="Navigate to Todos">
+    Click the **Todos** icon in the sidebar to open the todo management page.
+  </Step>
+  
+  <Step title="Click Add Todo">
+    Find the **+** button or "Add Todo" button, typically at the top of the list.
+  </Step>
+  
+  <Step title="Fill in details">
+    Enter the todo information:
+    - **Title**: A clear, concise description of the task
+    - **Description**: Additional details or notes (optional)
+    - **Due date**: When the task should be completed
+    - **Priority**: High, medium, or low
+    - **Project**: Assign to a project for better organization
+    - **Labels**: Add tags for categorization
+  </Step>
+  
+  <Step title="Save">
+    Click **Save** or press **Enter** to create the todo.
+  </Step>
+</Steps>
+
+### Create with AI
+
+You can create todos by chatting with GAIA:
+
+- "Add a task to review the quarterly report by Friday"
+- "Create a todo for team meeting preparation"
+- "Remind me to call the client tomorrow afternoon"
+
+GAIA will automatically extract the task details and create the todo with appropriate due dates and priorities.
+
+<Tip>
+  GAIA can understand relative dates like "tomorrow," "next week," "in 3 days," and will set the correct due dates automatically.
+</Tip>
+
+## Organizing todos
+
+### Projects
+
+Group related todos into projects for better organization:
+
+<Steps>
+  <Step title="Create a project">
+    Click the **Projects** section and select **Add Project**. Give it a meaningful name like "Q1 Marketing" or "Website Redesign."
+  </Step>
+  
+  <Step title="Assign todos">
+    When creating or editing a todo, select the project from the dropdown menu.
+  </Step>
+  
+  <Step title="View by project">
+    Filter your todo list by project to focus on specific work streams.
+  </Step>
+</Steps>
+
+Projects can be updated, renamed, or deleted from the project management interface.
+
+### Labels
+
+Use labels to categorize todos across projects:
+
+- Add multiple labels to a single todo
+- Filter todos by label to find related tasks
+- Popular labels include: `urgent`, `follow-up`, `waiting`, `review`
+
+<Note>
+  The system tracks label usage and shows you the most frequently used labels for quick access from `apps/web/src/features/todo/api/todoApi.ts:204`.
+</Note>
+
+### Priority levels
+
+Set priorities to focus on what matters most:
+
+- **High**: Urgent tasks that need immediate attention (shown in red)
+- **Medium**: Important but not urgent (shown in yellow)
+- **Low**: Tasks that can wait (shown in blue)
+
+## Todo views
+
+### Inbox
+
+The default view for new, unorganized todos. Tasks appear here until you assign them to a project or schedule them.
+
+### Today
+
+Shows all todos due today. This view helps you focus on what needs to be done right now.
+
+### Upcoming
+
+Displays tasks scheduled for the future, organized by due date. Use this to plan ahead and prepare for upcoming work.
+
+### Completed
+
+View your finished tasks. This is great for:
+- Reviewing what you've accomplished
+- Finding information from past tasks
+- Tracking productivity over time
+
+### Overdue
+
+Highlights tasks that are past their due date. These appear in red to draw attention.
+
+<Warning>
+  Overdue tasks require immediate attention. Review this list regularly to stay on track.
+</Warning>
+
+## Working with todos
+
+### Completing tasks
+
+Mark todos as complete in several ways:
+
+- Click the checkbox next to the todo title
+- Open the todo details and click **Mark Complete**
+- Tell GAIA: "Mark the quarterly report task as done"
+
+Completed todos are moved to the Completed view automatically.
+
+### Editing todos
+
+<Steps>
+  <Step title="Select the todo">
+    Click on any todo to open the details panel on the right side.
+  </Step>
+  
+  <Step title="Modify details">
+    Update any field including title, description, due date, priority, project, or labels.
+  </Step>
+  
+  <Step title="Save changes">
+    Changes are saved automatically as you edit.
+  </Step>
+</Steps>
+
+### Bulk operations
+
+Manage multiple todos at once:
+
+1. Select multiple todos using checkboxes
+2. Choose a bulk action:
+   - **Complete**: Mark all selected as done
+   - **Move**: Assign to a different project
+   - **Delete**: Remove selected todos
+
+Bulk operations are powered by the API endpoints at `apps/web/src/features/todo/api/todoApi.ts:122`.
+
+### Search and filter
+
+Find specific todos quickly:
+
+- **Text search**: Type in the search box to find todos by title or description
+- **Semantic search**: Use natural language to find related todos (e.g., "tasks about the client presentation")
+- **Filters**: Combine project, label, priority, and completion status
+
+<Tip>
+  Semantic search uses AI to understand the meaning of your query, not just keyword matching. It's powered by vector embeddings from `apps/web/src/features/todo/api/todoApi.ts:280`.
+</Tip>
+
+## Todo workflows
+
+### Generate workflow from todo
+
+GAIA can create automated workflows for complex tasks:
+
+<Steps>
+  <Step title="Open todo details">
+    Click on a todo to view its details in the right panel.
+  </Step>
+  
+  <Step title="Click Generate Workflow">
+    Find the **Generate Workflow** button in the todo details.
+  </Step>
+  
+  <Step title="Review workflow">
+    GAIA analyzes the todo and creates a multi-step workflow with appropriate actions and automation.
+  </Step>
+  
+  <Step title="Activate or customize">
+    You can activate the workflow immediately or customize the steps before activation.
+  </Step>
+</Steps>
+
+Workflows are generated in the background and you'll receive a notification when ready.
+
+<Note>
+  Workflow generation uses AI to break down complex tasks into manageable steps. The status is tracked via `apps/web/src/features/todo/api/todoApi.ts:345`.
+</Note>
+
+## Advanced features
+
+### Smart due dates
+
+GAIA understands various date formats:
+
+- Natural language: "tomorrow", "next Monday", "in 2 weeks"
+- Relative dates: "in 3 days", "2 weeks from now"
+- Specific dates: "March 15", "3/15/2026"
+- Time-aware: "tomorrow at 2pm", "next Friday afternoon"
+
+### Recurring todos
+
+Set up tasks that repeat automatically:
+
+- Daily, weekly, monthly, or custom intervals
+- Automatically creates a new instance when marked complete
+- Great for regular check-ins, reviews, or maintenance tasks
+
+### Todo counts and statistics
+
+Track your productivity with built-in statistics:
+
+- View counts by category (inbox, today, upcoming, completed, overdue)
+- See completion trends over time
+- Identify bottlenecks and overdue patterns
+
+These counts are optimized for performance and retrieved from `apps/web/src/features/todo/api/todoApi.ts:192`.
+
+## Integration with other features
+
+### Calendar integration
+
+Todos with due dates automatically appear on your calendar, helping you visualize your workload alongside meetings and events.
+
+### Email integration
+
+Create todos from emails:
+- GAIA can suggest todos based on email content
+- Convert action items from emails into tracked tasks
+- Link todos back to original emails for context
+
+### Chat integration
+
+Manage todos conversationally:
+- "What's on my todo list for today?"
+- "Move the client presentation task to next week"
+- "Show me all high-priority tasks"
+
+## Tips for effective todo management
+
+<CardGroup cols={2}>
+  <Card title="Keep titles clear" icon="text">
+    Use action verbs and be specific. "Review Q1 report" is better than "Report."
+  </Card>
+  
+  <Card title="Use projects consistently" icon="folder">
+    Group related work together. It's easier to focus when tasks are organized by context.
+  </Card>
+  
+  <Card title="Set realistic due dates" icon="calendar">
+    Be honest about when you can complete tasks. Adjust dates as priorities change.
+  </Card>
+  
+  <Card title="Review regularly" icon="rotate">
+    Check your todo list daily. Move tasks between views as priorities shift.
+  </Card>
+  
+  <Card title="Use labels strategically" icon="tags">
+    Don't over-label. Stick to a consistent set of labels that help you find tasks quickly.
+  </Card>
+  
+  <Card title="Clean up completed tasks" icon="trash">
+    Archive or delete old completed tasks periodically to keep your list focused.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Workflow Creation" icon="diagram-project" href="/guide/workflow-creation">
+    Learn how to automate repetitive tasks with workflows.
+  </Card>
+  
+  <Card title="Calendar Automation" icon="calendar" href="/guide/calendar-automation">
+    Integrate todos with your calendar for better time management.
+  </Card>
+</CardGroup>

@@ -1,0 +1,623 @@
+---
+title: Testing
+description: Learn about GAIA's testing patterns, pytest configuration, and best practices for backend tests
+---
+
+# Testing
+
+GAIA uses **pytest** for testing with async support and comprehensive fixtures.
+
+## Testing Stack
+
+- **pytest**: Testing framework
+- **pytest-asyncio**: Async test support
+- **pytest-check**: Soft assertions
+- **nest-asyncio**: Nested event loop support
+- **pytest fixtures**: Reusable test components
+
+## Test Organization
+
+```
+apps/api/tests/
+├── __init__.py
+├── conftest.py                 # Global fixtures
+├── composio_tools/
+│   ├── __init__.py
+│   ├── conftest.py            # Tool-specific fixtures
+│   ├── config_utils.py        # Configuration helpers
+│   ├── test_gmail.py          # Gmail tool tests
+│   ├── test_calendar.py       # Calendar tool tests
+│   ├── test_google_docs.py    # Google Docs tests
+│   ├── test_google_sheets.py  # Google Sheets tests
+│   ├── test_linear.py         # Linear integration tests
+│   └── test_linkedin.py       # LinkedIn tests
+└── unit/
+    ├── test_services.py       # Service layer tests
+    ├── test_models.py         # Model validation tests
+    └── test_utils.py          # Utility function tests
+```
+
+## Running Tests
+
+### Basic Commands
+
+```bash
+# Run all tests
+cd apps/api
+uv run pytest
+
+# Run specific test file
+uv run pytest tests/composio_tools/test_gmail.py
+
+# Run with verbose output
+uv run pytest tests/composio_tools/test_gmail.py -v
+
+# Run specific test
+uv run pytest tests/composio_tools/test_gmail.py::TestGmailReadOperations::test_get_unread_count
+
+# Run with output capture disabled (for interactive tests)
+uv run pytest tests/composio_tools/test_gmail.py -s
+```
+
+### With Custom Options
+
+```bash
+# Run with user ID
+pytest tests/composio_tools/test_gmail.py -v --user-id USER_ID
+
+# Skip destructive tests
+pytest tests/composio_tools/ --skip-destructive
+
+# Auto-confirm prompts
+pytest tests/composio_tools/ --yes
+```
+
+## Pytest Configuration
+
+### Custom CLI Options
+
+```python
+def pytest_addoption(parser):
+    """Add custom CLI options for pytest."""
+    parser.addoption(
+        "--user-id",
+        action="store",
+        default=None,
+        help="User ID for Composio authentication",
+    )
+    parser.addoption(
+        "--skip-destructive",
+        action="store_true",
+        default=False,
+        help="Skip tests that create/modify/delete events",
+    )
+    parser.addoption(
+        "--yes",
+        action="store_true",
+        default=False,
+        help="Automatically confirm all interactive prompts",
+    )
+```
+
+## Fixtures
+
+### Session-Scoped Fixtures
+
+```python
+import asyncio
+import pytest
+import nest_asyncio
+from app.core.lazy_loader import providers
+
+# Apply nest_asyncio for nested event loops
+nest_asyncio.apply()
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create event loop for the entire test session."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+@pytest.fixture(scope="session")
+def user_id(request) -> str:
+    """Get user ID from CLI argument or config/env."""
+    cli_user_id = request.config.getoption("--user-id")
+    if cli_user_id:
+        return cli_user_id
+
+    # Fall back to config/env
+    config_user_id = get_user_id()
+
+    if not config_user_id:
+        pytest.fail("No user ID provided. Set EVAL_USER_ID or use --user-id flag.")
+
+    return config_user_id
+
+@pytest.fixture(scope="session")
+def composio_client(user_id: str):
+    """Initialize Composio client and all required providers."""
+    from app.agents.evals.initialization import init_eval_providers
+
+    # Run async initialization
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(init_eval_providers())
+
+    # Get composio service from providers
+    composio_service = providers.get("composio_service")
+    if not composio_service:
+        pytest.fail("Composio service not available. Check COMPOSIO_KEY.")
+        return None
+
+    return composio_service.composio
+```
+
+### Function-Scoped Fixtures
+
+```python
+import json
+from typing import Generator, Dict, Any
+from datetime import datetime
+
+@pytest.fixture(scope="function")
+def confirm_action(request):
+    """
+    Fixture to request user confirmation for destructive actions.
+    Requires running pytest with '-s' (no capture) to work interactively.
+    """
+    def _confirm(message: str) -> None:
+        # Check for non-interactive mode flag
+        if request.config.getoption("--yes", default=False):
+            return
+
+        full_msg = f"\n[CONFIRMATION REQUIRED] {message}\nProceed? (y/N): "
+
+        try:
+            response = input(full_msg)
+        except OSError:
+            pytest.fail(
+                "Cannot read input. Run pytest with '-s' to enable interactive confirmation."
+            )
+
+        if response.lower() not in ["y", "yes"]:
+            pytest.skip("Skipped by user")
+
+    return _confirm
+
+@pytest.fixture(scope="class")
+def test_email(composio_client, user_id) -> Generator[Dict[str, Any], None, None]:
+    """
+    Create a test draft email for Gmail testing.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    subject = f"[PYTEST] Test Email {timestamp}"
+
+    result = execute_tool(
+        composio_client,
+        "GMAIL_CREATE_EMAIL_DRAFT",
+        {
+            "to": "test@example.com",
+            "subject": subject,
+            "body": f"This is a test draft created by pytest at {timestamp}.",
+        },
+        user_id,
+    )
+
+    if not result.get("successful"):
+        pytest.skip(f"Could not create test draft: {result.get('error')}")
+
+    data = parse_data(result)
+    draft_id = data.get("id") or data.get("draft_id")
+    message_id = data.get("message", {}).get("id") or draft_id
+
+    email_info = {
+        "message_id": message_id,
+        "draft_id": draft_id,
+        "subject": subject,
+    }
+
+    yield email_info
+
+    # Cleanup: Delete the draft
+    if draft_id:
+        try:
+            execute_tool(
+                composio_client,
+                "GMAIL_DELETE_DRAFT",
+                {"draft_id": draft_id},
+                user_id,
+            )
+        except Exception:
+            pass  # Best effort cleanup
+```
+
+## Test Helpers
+
+### Tool Execution Helper
+
+```python
+def execute_tool(
+    composio_client,
+    tool_name: str,
+    payload: Dict[str, Any],
+    user_id: str
+) -> Dict[str, Any]:
+    """
+    Execute a tool using ComposioService and LangChain adapter.
+
+    Args:
+        composio_client: Ignored (kept for compatibility)
+        tool_name: Name of the tool to execute
+        payload: Tool arguments
+        user_id: User ID to execute as
+
+    Returns:
+        Dict containing 'successful', 'data', etc.
+    """
+    from app.services.composio.composio_service import get_composio_service
+
+    # Get the service which provides LangChain-compatible tools
+    composio_service = get_composio_service()
+
+    # Get the specific tool with all hooks applied
+    tool = composio_service.get_tool(tool_name, user_id=user_id)
+    if not tool:
+        raise ValueError(f"Tool {tool_name} not found")
+
+    # Invoke the tool
+    try:
+        result = tool.invoke(payload)
+
+        # Parse JSON response if string
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except json.JSONDecodeError:
+                result = {"successful": True, "data": result}
+
+        # Parse nested JSON in data field
+        if isinstance(result, dict) and isinstance(result.get("data"), str):
+            try:
+                result["data"] = json.loads(result["data"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        return result
+    except Exception as e:
+        error_msg = str(e)
+        return {"successful": False, "error": error_msg, "data": None}
+```
+
+### Data Parsing Helper
+
+```python
+def parse_data(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse result data, handling string JSON responses."""
+    data = result.get("data", {})
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            pass
+    return data if isinstance(data, dict) else {}
+```
+
+## Writing Tests
+
+### Basic Test Structure
+
+```python
+import pytest
+from pytest_check import check
+
+class TestGmailReadOperations:
+    """Tests for read-only Gmail operations."""
+
+    def test_get_unread_count(self, composio_client, user_id):
+        """
+        Test GET_UNREAD_COUNT returns unread count for inbox.
+        """
+        result = execute_tool(
+            composio_client,
+            "GMAIL_GET_UNREAD_COUNT",
+            {"label_id": "INBOX"},
+            user_id,
+        )
+
+        assert result.get("successful"), f"API call failed: {result.get('error')}"
+        data = parse_data(result)
+
+        with check:
+            assert "unreadCount" in data, "Should have 'unreadCount' field"
+            assert isinstance(data.get("unreadCount"), int), "unreadCount should be int"
+            assert data.get("unreadCount") >= 0, "unreadCount should be non-negative"
+```
+
+### Tests with Setup/Teardown
+
+```python
+class TestGmailMessageOperations:
+    """Tests for Gmail message operations using draft email."""
+
+    def test_mark_as_read(self, composio_client, user_id, test_email):
+        """
+        Test MARK_AS_READ marks the test email as read.
+        """
+        result = execute_tool(
+            composio_client,
+            "GMAIL_MARK_AS_READ",
+            {"message_ids": [test_email["message_id"]]},
+            user_id,
+        )
+
+        assert result.get("successful"), f"API call failed: {result.get('error')}"
+
+    def test_star_email(self, composio_client, user_id, test_email):
+        """
+        Test STAR_EMAIL adds star to the test email.
+        """
+        result = execute_tool(
+            composio_client,
+            "GMAIL_STAR_EMAIL",
+            {
+                "message_ids": [test_email["message_id"]],
+                "unstar": False,
+            },
+            user_id,
+        )
+
+        assert result.get("successful"), f"API call failed: {result.get('error')}"
+        data = parse_data(result)
+        assert data.get("action") == "starred", "Should report action as 'starred'"
+```
+
+### Async Tests
+
+```python
+import pytest
+
+@pytest.mark.asyncio
+async def test_user_service():
+    """Test user service functions."""
+    from app.services.user_service import get_user_by_id
+
+    # Test user retrieval
+    user = await get_user_by_id("test-user-id")
+    assert user is not None
+    assert user["email"] == "test@example.com"
+```
+
+### Parametrized Tests
+
+```python
+@pytest.mark.parametrize("status,expected_count", [
+    ("active", 5),
+    ("completed", 3),
+    ("cancelled", 0),
+])
+async def test_count_reminders_by_status(status, expected_count):
+    """Test reminder counting by status."""
+    from app.services.reminder_service import count_reminders
+
+    count = await count_reminders(user_id="test-user", status=status)
+    assert count == expected_count
+```
+
+### Tests with Mocking
+
+```python
+from unittest.mock import AsyncMock, patch
+
+@pytest.mark.asyncio
+async def test_send_email_notification():
+    """Test email notification sending with mock."""
+    from app.services.notification_service import send_email_notification
+
+    with patch("app.services.notification_service.smtp_client") as mock_smtp:
+        mock_smtp.send = AsyncMock(return_value={"success": True})
+
+        result = await send_email_notification(
+            to="test@example.com",
+            subject="Test",
+            body="Test message"
+        )
+
+        assert result["success"]
+        mock_smtp.send.assert_called_once()
+```
+
+## Testing Best Practices
+
+### 1. Test Naming
+
+```python
+# Good: Descriptive test names
+def test_get_unread_count_returns_integer():
+    pass
+
+def test_mark_as_read_updates_email_status():
+    pass
+
+# Bad: Vague test names
+def test_gmail():
+    pass
+
+def test_1():
+    pass
+```
+
+### 2. Arrange-Act-Assert Pattern
+
+```python
+def test_create_reminder():
+    # Arrange
+    user_id = "test-user-id"
+    reminder_data = {
+        "title": "Test Reminder",
+        "remind_at": datetime.now() + timedelta(hours=1)
+    }
+
+    # Act
+    reminder = await create_reminder(user_id, reminder_data)
+
+    # Assert
+    assert reminder["title"] == "Test Reminder"
+    assert reminder["user_id"] == user_id
+    assert reminder["status"] == "pending"
+```
+
+### 3. Use Soft Assertions
+
+```python
+from pytest_check import check
+
+def test_user_response_structure():
+    user = await get_user("test-id")
+
+    with check:
+        assert "user_id" in user
+        assert "email" in user
+        assert "name" in user
+        assert "created_at" in user
+```
+
+### 4. Test Error Cases
+
+```python
+import pytest
+from fastapi import HTTPException
+
+@pytest.mark.asyncio
+async def test_get_user_not_found():
+    """Test 404 error for non-existent user."""
+    with pytest.raises(HTTPException) as exc_info:
+        await get_user_by_id("nonexistent-id")
+
+    assert exc_info.value.status_code == 404
+    assert "not found" in exc_info.value.detail.lower()
+```
+
+### 5. Clean Up Resources
+
+```python
+@pytest.fixture
+def temp_file():
+    """Create temporary file for testing."""
+    file_path = "/tmp/test_file.txt"
+
+    # Setup
+    with open(file_path, "w") as f:
+        f.write("test data")
+
+    yield file_path
+
+    # Teardown
+    if os.path.exists(file_path):
+        os.remove(file_path)
+```
+
+### 6. Skip Tests Conditionally
+
+```python
+import pytest
+import os
+
+@pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="Skipping in CI environment"
+)
+def test_local_only_feature():
+    pass
+
+@pytest.fixture
+def skip_destructive(request):
+    """Skip destructive tests if flag is set."""
+    return request.config.getoption("--skip-destructive")
+
+def test_delete_all_data(skip_destructive):
+    if skip_destructive:
+        pytest.skip("Skipping destructive test")
+
+    # Destructive test code
+    pass
+```
+
+## Coverage Reporting
+
+```bash
+# Install pytest-cov
+uv add --dev pytest-cov
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# View coverage report
+open htmlcov/index.html
+```
+
+## Continuous Integration
+
+### GitHub Actions Example
+
+```yaml
+name: Backend Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      mongodb:
+        image: mongo:7
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd apps/api
+          pip install uv
+          uv sync
+
+      - name: Run tests
+        env:
+          POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/test
+          MONGO_DB: mongodb://localhost:27017/test
+          REDIS_URL: redis://localhost:6379
+        run: |
+          cd apps/api
+          uv run pytest --cov=app --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+```

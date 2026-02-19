@@ -1,0 +1,297 @@
+---
+title: 'Memory API'
+description: 'Store and retrieve contextual memories for personalized AI interactions'
+---
+
+# Memory API
+
+The Memory API enables storage and retrieval of contextual information to personalize AI interactions and maintain context across conversations.
+
+## Memory Object
+
+<ResponseField name="id" type="string">
+  Unique memory identifier
+</ResponseField>
+
+<ResponseField name="content" type="string">
+  Memory content/text
+</ResponseField>
+
+<ResponseField name="metadata" type="object">
+  Optional metadata (tags, categories, source, etc.)
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  ISO 8601 creation timestamp
+</ResponseField>
+
+<ResponseField name="updated_at" type="string">
+  ISO 8601 last update timestamp
+</ResponseField>
+
+## Endpoints
+
+### Get All Memories
+
+Retrieve all memories for the current user.
+
+```bash
+GET /api/v1/memory
+```
+
+```json Response
+{
+  "memories": [
+    {
+      "id": "mem_123",
+      "content": "User prefers concise communication style",
+      "metadata": {
+        "category": "communication_preference",
+        "source": "conversation"
+      },
+      "created_at": "2026-02-15T10:00:00Z",
+      "updated_at": "2026-02-15T10:00:00Z"
+    },
+    {
+      "id": "mem_456",
+      "content": "Working on machine learning project using PyTorch",
+      "metadata": {
+        "category": "current_projects",
+        "tags": ["ml", "pytorch"]
+      },
+      "created_at": "2026-02-18T14:30:00Z",
+      "updated_at": "2026-02-18T14:30:00Z"
+    }
+  ],
+  "total": 2
+}
+```
+
+### Create Memory
+
+Store a new memory.
+
+```bash
+POST /api/v1/memory
+```
+
+```json Request
+{
+  "content": "User is learning Spanish and practices daily at 7 AM",
+  "metadata": {
+    "category": "habits",
+    "tags": ["language", "routine"],
+    "source": "user_input"
+  }
+}
+```
+
+```json Response
+{
+  "success": true,
+  "memory_id": "mem_789",
+  "message": "Memory created successfully"
+}
+```
+
+<ParamField body="content" type="string" required>
+  Memory content to store
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Optional metadata for categorization and filtering
+  
+  Common fields:
+  - `category` - Memory category (preferences, habits, projects, etc.)
+  - `tags` - Array of tags for easy filtering
+  - `source` - Where the memory came from (conversation, user_input, etc.)
+  - `importance` - Importance level (high, medium, low)
+</ParamField>
+
+### Delete Memory
+
+Delete a specific memory.
+
+```bash
+DELETE /api/v1/memory/{memory_id}
+```
+
+```json Response
+{
+  "success": true,
+  "message": "Memory deleted successfully"
+}
+```
+
+### Clear All Memories
+
+Delete all memories for the current user.
+
+```bash
+DELETE /api/v1/memory
+```
+
+<Warning>
+  This operation is irreversible. All memories will be permanently deleted.
+</Warning>
+
+```json Response
+{
+  "success": true,
+  "message": "All memories cleared successfully"
+}
+```
+
+## How Memories Work
+
+### Automatic Memory Creation
+
+GAIA can automatically create memories during conversations when it learns new information about you:
+
+- User preferences (communication style, working hours, etc.)
+- Current projects and goals
+- Important contacts and relationships
+- Habits and routines
+- Technical preferences (programming languages, tools, etc.)
+
+### Memory Retrieval
+
+Memories are automatically retrieved and used to:
+
+- Personalize AI responses
+- Provide relevant context in conversations
+- Suggest proactive actions
+- Improve recommendation quality
+
+### Semantic Search
+
+Memories are stored with embeddings for semantic search, allowing GAIA to find relevant memories even when exact keywords don't match.
+
+Example:
+- Query: "What programming language am I using?"
+- Matched Memory: "Working on machine learning project using PyTorch"
+
+## Use Cases
+
+### Personal Preferences
+
+```json
+{
+  "content": "Prefers morning meetings between 9-11 AM",
+  "metadata": {
+    "category": "scheduling_preferences"
+  }
+}
+```
+
+### Project Context
+
+```json
+{
+  "content": "Building e-commerce platform with Next.js and Stripe",
+  "metadata": {
+    "category": "current_projects",
+    "tags": ["nextjs", "stripe", "ecommerce"]
+  }
+}
+```
+
+### Communication Style
+
+```json
+{
+  "content": "Appreciates direct, concise responses without excessive pleasantries",
+  "metadata": {
+    "category": "communication_preference"
+  }
+}
+```
+
+### Important Dates
+
+```json
+{
+  "content": "Product launch scheduled for March 15, 2026",
+  "metadata": {
+    "category": "important_dates",
+    "tags": ["deadline", "product_launch"]
+  }
+}
+```
+
+## Rate Limiting
+
+Memory operations are subject to rate limits:
+
+- **Free:** 50 operations/hour
+- **Pro:** 500 operations/hour
+- **Team:** 2000 operations/hour
+
+See [Rate Limits](/api/rate-limits) for details.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store meaningful context">
+    Focus on storing information that helps personalize future interactions:
+    
+    ✅ Good: "Prefers TypeScript over JavaScript for new projects"
+    
+    ❌ Poor: "User clicked a button"
+  </Accordion>
+
+  <Accordion title="Use metadata for organization">
+    Add categories and tags to make memories searchable:
+    
+    ```json
+    {
+      "content": "Uses VS Code with Vim keybindings",
+      "metadata": {
+        "category": "development_tools",
+        "tags": ["vscode", "vim", "editor"]
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Update stale memories">
+    Delete or update memories when information becomes outdated:
+    
+    ```bash
+    # Delete old memory
+    DELETE /api/v1/memory/mem_old_project
+    
+    # Create updated memory
+    POST /api/v1/memory
+    {
+      "content": "Now working with React Native instead of Flutter"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Be specific and actionable">
+    Store specific, actionable information rather than vague statements:
+    
+    ✅ "Holds 1:1 meetings with direct reports every other Friday at 2 PM"
+    
+    ❌ "Likes meetings"
+  </Accordion>
+</AccordionGroup>
+
+## Privacy & Security
+
+- Memories are encrypted at rest and in transit
+- Only the authenticated user can access their memories
+- Memories are not shared with other users
+- Deleting your account permanently deletes all memories
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Chat API" icon="comments" href="/api/chat">
+    Use memories in conversations
+  </Card>
+  <Card title="Integrations" icon="plug" href="/api/integrations">
+    Connect third-party services
+  </Card>
+</CardGroup>

@@ -1,0 +1,418 @@
+---
+title: Project Structure
+description: Understanding the GAIA monorepo layout and organization
+---
+
+## Overview
+
+GAIA is organized as an Nx monorepo with clear separation between applications and shared libraries. This structure enables code sharing, consistent tooling, and efficient builds across all projects.
+
+## Repository Layout
+
+```
+gaia/
+├── apps/                 # All applications
+│   ├── api/             # FastAPI backend
+│   ├── web/             # Next.js web app
+│   ├── desktop/         # Electron desktop app
+│   ├── mobile/          # React Native mobile app
+│   ├── voice-agent/     # Voice processing worker
+│   ├── bots/            # Bot integrations
+│   │   ├── discord/     # Discord bot
+│   │   ├── slack/       # Slack bot
+│   │   └── telegram/    # Telegram bot
+│   └── docs/            # Documentation site
+├── libs/                 # Shared libraries
+│   └── shared/          # Shared utilities
+│       ├── py/          # Python shared code
+│       └── ts/          # TypeScript shared code
+├── infra/                # Infrastructure
+│   └── docker/          # Docker Compose configs
+├── .agents/              # AI agent plans (gitignored)
+├── nx.json               # Nx configuration
+├── package.json          # Node.js dependencies
+├── pnpm-workspace.yaml   # pnpm workspace config
+└── pyproject.toml        # Python workspace config
+```
+
+## Applications
+
+### Web App (`apps/web`)
+
+The Next.js web application providing the browser-based interface.
+
+**Tech Stack**: Next.js 16, React 19, TypeScript, Zustand, TailwindCSS, Biome
+
+**Structure**:
+```
+apps/web/
+├── src/
+│   ├── app/              # Next.js App Router pages
+│   ├── features/         # Feature modules
+│   │   ├── chat/        # Chat interface
+│   │   ├── todo/        # Task management
+│   │   ├── calendar/    # Calendar and scheduling
+│   │   ├── workflows/   # Workflow automation
+│   │   └── integrations/ # Third-party integrations
+│   ├── components/       # Reusable React components
+│   ├── stores/          # Zustand state stores
+│   ├── lib/             # Utility functions
+│   ├── types/           # TypeScript type definitions
+│   └── styles/          # Global styles
+├── public/              # Static assets
+├── next.config.js       # Next.js configuration
+├── tailwind.config.js   # TailwindCSS configuration
+└── tsconfig.json        # TypeScript configuration
+```
+
+**Key Points**:
+- Uses App Router with Server Components
+- Organized by features, not technical layers
+- Zustand for state management
+- Biome for linting and formatting
+- Standalone output mode for Electron bundling
+
+### Desktop App (`apps/desktop`)
+
+Electron wrapper around the Next.js web app for native desktop experience.
+
+**Tech Stack**: Electron, electron-vite, TypeScript
+
+**Structure**:
+```
+apps/desktop/
+├── src/
+│   ├── main/            # Electron main process
+│   ├── preload/         # Preload scripts
+│   └── renderer/        # Renderer process (uses web app)
+├── resources/           # App icons and assets
+└── electron.vite.config.ts
+```
+
+**Key Points**:
+- Uses Next.js standalone build output
+- Native system integration (notifications, tray, etc.)
+- Cross-platform: macOS, Windows, Linux
+
+### Mobile App (`apps/mobile`)
+
+React Native mobile application for iOS and Android.
+
+**Tech Stack**: React Native, Expo, TypeScript, React Navigation
+
+**Structure**:
+```
+apps/mobile/
+├── src/
+│   ├── screens/         # Screen components
+│   ├── navigation/      # React Navigation setup
+│   ├── components/      # Reusable components
+│   ├── stores/          # State management
+│   └── lib/             # Utilities
+├── assets/              # Images, fonts, etc.
+└── app.json             # Expo configuration
+```
+
+### API Backend (`apps/api`)
+
+FastAPI backend with LangGraph agents for AI orchestration.
+
+**Tech Stack**: FastAPI, LangGraph, Python 3.11+, PostgreSQL, MongoDB, Redis, ChromaDB, RabbitMQ
+
+**Structure**:
+```
+apps/api/
+├── app/
+│   ├── main.py          # Application entry point
+│   ├── core/            # Core application logic
+│   │   ├── app_factory.py
+│   │   ├── middleware.py
+│   │   └── lifespan.py
+│   ├── api/
+│   │   └── v1/          # API v1 routes
+│   ├── agents/          # LangGraph agent system
+│   │   ├── core/        # Core agent logic
+│   │   │   ├── agent.py
+│   │   │   ├── state.py
+│   │   │   ├── graph_manager.py
+│   │   │   ├── nodes/   # Agent nodes
+│   │   │   └── subagents/ # Specialized agents
+│   │   ├── tools/       # Agent tools
+│   │   ├── prompts/     # LLM prompts
+│   │   ├── memory/      # Memory management
+│   │   └── llm/         # LLM integrations
+│   ├── models/          # Database models (SQLAlchemy)
+│   ├── schemas/         # Pydantic schemas
+│   ├── services/        # Business logic services
+│   ├── db/              # Database clients
+│   │   ├── postgresql.py
+│   │   ├── mongodb.py
+│   │   ├── redis.py
+│   │   ├── chroma.py
+│   │   └── rabbitmq.py
+│   ├── workers/         # Background task workers
+│   ├── config/          # Configuration and settings
+│   └── utils/           # Utility functions
+├── tests/               # Pytest tests
+├── pyproject.toml       # Python dependencies
+├── ruff.toml            # Ruff configuration
+└── Dockerfile           # Docker image
+```
+
+**Key Points**:
+- FastAPI with automatic OpenAPI documentation
+- LangGraph for AI agent orchestration
+- ARQ for background job processing (Redis-based)
+- Multiple database backends for different use cases
+- Uses `uv` for fast dependency management
+
+### Voice Agent (`apps/voice-agent`)
+
+Dedicated worker for voice processing and transcription.
+
+**Tech Stack**: Python, AssemblyAI, FastAPI
+
+**Structure**:
+```
+apps/voice-agent/
+├── app/
+│   ├── main.py          # Worker entry point
+│   ├── processors/      # Audio processors
+│   └── services/        # Voice services
+└── pyproject.toml       # Python dependencies
+```
+
+### Bots (`apps/bots/*`)
+
+Integration bots for various platforms.
+
+**Discord** (`apps/bots/discord`):
+- Discord.py integration
+- Slash commands
+- Event handlers
+
+**Slack** (`apps/bots/slack`):
+- Bolt for Python integration
+- Slash commands
+- Interactive components
+
+**Telegram** (`apps/bots/telegram`):
+- python-telegram-bot integration
+- Command handlers
+- Inline queries
+
+## Shared Libraries
+
+### Shared Python (`libs/shared/py`)
+
+Common Python utilities used across all Python applications.
+
+**Package Name**: `gaia-shared`
+
+**Contents**:
+```
+libs/shared/py/
+├── gaia_shared/
+│   ├── config/          # Shared configuration
+│   ├── logging/         # Logging setup
+│   ├── models/          # Shared Pydantic models
+│   └── utils/           # Common utilities
+└── pyproject.toml
+```
+
+**Usage**: Automatically available to Python apps via workspace dependencies:
+```python
+from gaia_shared.config import settings
+from gaia_shared.logging import setup_logging
+```
+
+### Shared TypeScript (`libs/shared/ts`)
+
+Common TypeScript utilities used across frontend applications.
+
+**Contents**:
+```
+libs/shared/ts/
+├── src/
+│   ├── types/           # Shared TypeScript types
+│   ├── utils/           # Common utilities
+│   └── constants/       # Shared constants
+└── package.json
+```
+
+## Infrastructure
+
+### Docker Compose (`infra/docker`)
+
+Docker Compose configurations for local development and production.
+
+**Files**:
+- `docker-compose.yml` - Development environment
+- `docker-compose.prod.yml` - Production environment
+
+**Services**:
+- PostgreSQL (port 5432)
+- MongoDB (port 27017)
+- Redis (port 6379)
+- ChromaDB (port 8001)
+- RabbitMQ (ports 5672, 15672)
+
+**Profiles**:
+- `backend` - Backend services only
+- `worker` - Worker services only
+- `voice` - Voice agent services
+
+## Configuration Files
+
+### Nx Configuration (`nx.json`)
+
+Central Nx configuration defining:
+- Target defaults for build, test, lint, etc.
+- Caching strategies
+- Task dependencies
+- Release configuration
+- Docker integration
+
+**Key Settings**:
+```json
+{
+  "useDaemonProcess": false,
+  "defaultBase": "master",
+  "parallel": 3,
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["sync", "^build"]
+    }
+  }
+}
+```
+
+### Project Configuration (`project.json`)
+
+Each app has a `project.json` defining:
+- Project name and root
+- Available targets (build, dev, lint, etc.)
+- Dependencies on other projects
+- Caching configuration
+
+**Example** (`apps/api/project.json`):
+```json
+{
+  "name": "api",
+  "root": "apps/api",
+  "sourceRoot": "apps/api/app",
+  "implicitDependencies": ["shared-python"],
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run uvicorn app.main:app --reload"
+      }
+    }
+  }
+}
+```
+
+### Package Management
+
+**Node.js** (`package.json`, `pnpm-workspace.yaml`):
+- Root package.json with workspace configuration
+- pnpm for fast, efficient dependency management
+- Shared dependencies at root level
+
+**Python** (`pyproject.toml`, `uv.lock`):
+- Workspace configuration in root `pyproject.toml`
+- Each Python app has its own `pyproject.toml`
+- Shared library via workspace dependencies
+- `uv` for ultra-fast package installation
+
+## Development Patterns
+
+### Feature-Based Organization
+
+Code is organized by features, not technical layers:
+
+**Good**:
+```
+features/
+  chat/
+    components/
+    stores/
+    hooks/
+    types/
+    utils/
+```
+
+**Avoid**:
+```
+components/
+  chat/
+stores/
+  chat/
+hooks/
+  chat/
+```
+
+### Import Aliases
+
+Use absolute imports with path aliases:
+
+**TypeScript** (`tsconfig.json`):
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
+```
+
+**Usage**:
+```typescript
+import { Button } from '@/components/ui/button'
+import { useTodos } from '@/features/todo/hooks'
+```
+
+### Workspace Dependencies
+
+Projects can depend on each other through Nx:
+
+**Python**:
+```toml
+[tool.uv.sources]
+gaia-shared = { workspace = true }
+```
+
+**TypeScript**:
+```json
+{
+  "dependencies": {
+    "@gaia/shared": "*"
+  }
+}
+```
+
+## Project Relationships
+
+Visualize project dependencies:
+
+```bash
+nx graph
+```
+
+This opens an interactive graph showing:
+- All projects in the workspace
+- Dependencies between projects
+- Task relationships
+
+<Note>
+  The web and desktop apps share the same Next.js codebase. The desktop app uses the standalone build output from the web app.
+</Note>
+
+## Next Steps
+
+- Explore available [Development Commands](/developers/commands)
+- Read the [Development Setup](/developers/development-setup) guide
+- Learn about [Contributing](https://docs.heygaia.io/developers/contributing)

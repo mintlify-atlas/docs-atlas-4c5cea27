@@ -1,0 +1,387 @@
+---
+title: Linear Integration
+description: Manage issues, projects, and track development progress with AI assistance
+---
+
+The Linear integration enables GAIA to create, update, and manage issues in your Linear workspace. Let AI handle issue tracking, project management, and development workflows naturally.
+
+## Features
+
+- **Issue Management**: Create, update, and track Linear issues
+- **Project Organization**: Organize issues across projects and teams
+- **Label & Status**: Manage issue labels, priorities, and statuses
+- **Assignment**: Assign issues to team members
+- **Cycle Management**: Work with Linear cycles and sprints
+- **Comment & Collaborate**: Add comments and collaborate on issues
+- **Search & Filter**: Find issues with advanced filtering
+
+## Setup
+
+<Steps>
+  <Step title="Navigate to Integrations">
+    Go to **Settings > Integrations** in GAIA
+  </Step>
+  <Step title="Find Linear">
+    Search for "Linear" in the Developer category
+  </Step>
+  <Step title="Connect Account">
+    Click **Connect** to start OAuth flow
+  </Step>
+  <Step title="Authorize Access">
+    Sign in to Linear and authorize GAIA to access your workspace
+  </Step>
+  <Step title="Select Workspace">
+    Choose which Linear workspace to connect (if you have multiple)
+  </Step>
+</Steps>
+
+<Warning>
+  Make sure you have appropriate permissions in your Linear workspace to create and modify issues.
+</Warning>
+
+## OAuth Configuration
+
+The Linear integration uses OAuth 2.0:
+
+- **Provider**: Composio
+- **Toolkit**: LINEAR
+- **Auth Type**: OAuth 2.0
+- **Managed By**: Composio platform
+
+## Usage Examples
+
+### Creating Issues
+
+```
+You: Create a bug issue: "Login button not working on mobile"
+
+GAIA: I'll create that issue for you.
+
+✓ Created issue: "Login button not working on mobile"
+  ID: DEV-123
+  Type: Bug
+  Status: Backlog
+  Team: Engineering
+```
+
+### Updating Issues
+
+```
+You: Change DEV-123 status to "In Progress" and assign to @john
+
+GAIA: Updated issue DEV-123:
+
+✓ Status: Backlog → In Progress
+✓ Assigned to: John Smith
+```
+
+### Searching Issues
+
+```
+You: Show me all high-priority bugs in the current cycle
+
+GAIA: Found 3 high-priority bugs in Cycle 24:
+
+1. DEV-123: Login button not working on mobile (In Progress)
+2. DEV-145: API timeout on user dashboard (Todo)
+3. DEV-156: Memory leak in background sync (Todo)
+```
+
+### Issue Planning
+
+```
+You: Break down the task "Implement user authentication" into subtasks
+
+GAIA: I'll create subtasks for "Implement user authentication":
+
+✓ Created parent issue: DEV-200
+✓ Created subtasks:
+  - DEV-201: Design authentication flow
+  - DEV-202: Implement login API
+  - DEV-203: Add OAuth providers
+  - DEV-204: Write authentication tests
+```
+
+### Project Updates
+
+```
+You: What's the status of the "Mobile App" project?
+
+GAIA: Mobile App Project Status:
+
+📊 Progress: 12/20 issues completed (60%)
+🔥 In Progress: 4 issues
+⏳ Backlog: 4 issues
+✅ Done: 12 issues
+
+Current cycle ends in 3 days.
+```
+
+## Available Actions
+
+The Linear agent can perform:
+
+- Create issues with title, description, and properties
+- Update issue status, priority, assignee
+- Add labels and tags
+- Manage issue relationships (blocks, blocked by)
+- Add comments to issues
+- Create and manage projects
+- Organize issues in cycles
+- Search and filter issues
+- Get current user information
+- Manage team assignments
+- Track issue history
+
+## Workflows & Triggers
+
+Linear supports powerful automation triggers:
+
+### Issue Created Trigger
+
+**Trigger**: When a new issue is created
+
+**Configuration**:
+```yaml
+trigger: linear_issue_created
+config:
+  team_id: ""  # Optional: filter by team
+```
+
+**Use Cases**:
+- Notify team in Slack
+- Create corresponding Notion page
+- Auto-assign based on labels
+- Log to analytics
+
+### Issue Updated Trigger
+
+**Trigger**: When an issue is updated
+
+**Configuration**:
+```yaml
+trigger: linear_issue_updated
+config:
+  team_id: ""  # Optional: filter by team
+```
+
+**Use Cases**:
+- Track status changes
+- Send progress updates
+- Update external systems
+- Notify stakeholders
+
+### Comment Trigger
+
+**Trigger**: When a comment is added to an issue
+
+**Configuration**:
+```yaml
+trigger: linear_comment_added
+config:
+  team_id: ""  # Optional: filter by team
+```
+
+**Use Cases**:
+- Notify issue assignee
+- Forward important comments to Slack
+- Track team discussions
+
+## AI Agent Details
+
+Linear uses a specialized subagent:
+
+- **Agent Name**: `linear_agent`
+- **Domain**: Issue tracking and project management
+- **Capabilities**:
+  - Creating well-structured issues
+  - Understanding project context
+  - Breaking down complex tasks
+  - Managing issue workflows
+  - Sprint and cycle planning
+  - Team coordination
+
+### Agent Intelligence
+
+The Linear agent can:
+- Infer issue priority from description
+- Suggest appropriate labels
+- Break down epics into smaller tasks
+- Understand team workflows
+- Recommend assignees based on expertise
+- Detect related issues
+
+## API Reference
+
+Key tools available:
+
+| Tool | Description |
+|------|-------------|
+| `LINEAR_GET_CURRENT_USER` | Get authenticated user info |
+| `LINEAR_CREATE_ISSUE` | Create a new issue |
+| `LINEAR_UPDATE_ISSUE` | Update issue properties |
+| `LINEAR_GET_ISSUE` | Get issue details |
+| `LINEAR_SEARCH_ISSUES` | Search with filters |
+| `LINEAR_CREATE_COMMENT` | Add comment to issue |
+| `LINEAR_LIST_TEAMS` | Get workspace teams |
+| `LINEAR_LIST_PROJECTS` | Get projects |
+| `LINEAR_GET_CYCLE` | Get cycle information |
+| `LINEAR_CREATE_PROJECT` | Create new project |
+| `LINEAR_UPDATE_PROJECT` | Update project details |
+
+For complete API documentation, see [Linear Tools Reference](/api-reference/integrations/linear).
+
+## Metadata Extraction
+
+GAIA automatically extracts your Linear user info:
+
+```json
+{
+  "user_id": "user_abc123",
+  "username": "John Smith",
+  "email": "john@company.com"
+}
+```
+
+This enables:
+- Auto-assignment of issues
+- Filtering by current user
+- Team mentions and notifications
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't create issues">
+    Verify you have write permissions in your Linear workspace. Check with your workspace admin.
+  </Accordion>
+  
+  <Accordion title="Team not found">
+    Make sure you're referencing the correct team name or ID. Use `List Teams` to see available teams.
+  </Accordion>
+  
+  <Accordion title="Status update failed">
+    The status must be valid for your team's workflow. Each team can have custom status values.
+  </Accordion>
+  
+  <Accordion title="Assignment errors">
+    You can only assign issues to team members. Verify the user is part of the target team.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+  Use clear, descriptive issue titles. Good: "Login API returns 500 on invalid password". Bad: "Fix login".
+</Tip>
+
+<Tip>
+  Include acceptance criteria in issue descriptions to help GAIA understand completion requirements.
+</Tip>
+
+<Warning>
+  When bulk updating issues, always specify team ID or project to avoid ambiguity.
+</Warning>
+
+## Advanced Usage
+
+### Bulk Operations
+
+```
+You: Mark all bugs with "login" in the title as high priority
+
+GAIA: Updating issues...
+
+✓ Updated 5 issues to High Priority:
+  - DEV-123: Login button not working
+  - DEV-145: Login API timeout
+  - DEV-167: Login form validation error
+  - DEV-189: Login redirect broken
+  - DEV-201: Login session expires
+```
+
+### Issue Dependencies
+
+```
+You: DEV-123 is blocked by DEV-145
+
+GAIA: Updated issue relationships:
+
+✓ DEV-123 blocked by DEV-145
+  You'll be notified when DEV-145 is resolved.
+```
+
+### Sprint Planning
+
+```
+You: Add all "urgent" issues to the current cycle
+
+GAIA: Adding urgent issues to Cycle 24...
+
+✓ Added 7 urgent issues to current cycle
+  Cycle capacity: 85% (17/20 issues)
+```
+
+### Custom Views
+
+```
+You: Show my issues that are overdue
+
+GAIA: You have 2 overdue issues:
+
+1. DEV-123: Login button fix (Due: 2 days ago) - In Progress
+2. DEV-156: Performance optimization (Due: yesterday) - Todo
+```
+
+## Team Workflows
+
+### Standup Updates
+
+```
+You: What did I work on yesterday?
+
+GAIA: Yesterday's Activity:
+
+✅ Completed:
+  - DEV-145: Login API timeout fix
+
+🔄 In Progress:
+  - DEV-123: Login button mobile issue
+
+💬 Commented on:
+  - DEV-156: Provided technical approach
+```
+
+### Project Reporting
+
+```
+You: Generate a status report for the "Q1 Release" project
+
+GAIA: Q1 Release Project Report
+
+📅 Timeline: On track (2 weeks remaining)
+📊 Completion: 65% (13/20 issues)
+
+✅ Completed (13): 13 issues
+🔄 In Progress (4): DEV-123, DEV-145, DEV-167, DEV-189
+⏳ Todo (3): DEV-201, DEV-210, DEV-215
+
+⚠️ Blockers: None
+```
+
+## Related Integrations
+
+- [GitHub](/integrations/github) - Link commits and PRs to Linear issues
+- [Slack](/integrations/slack) - Send Linear updates to Slack
+- [Notion](/integrations/notion) - Sync Linear issues with Notion
+- [Google Calendar](/integrations/google-calendar) - Add issue deadlines to calendar
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Issue Workflows" icon="diagram-project" href="/workflows/linear">
+    Automate issue management with workflows
+  </Card>
+  <Card title="Sprint Automation" icon="rocket" href="/workflows/sprint-planning">
+    Automate sprint planning and tracking
+  </Card>
+</CardGroup>

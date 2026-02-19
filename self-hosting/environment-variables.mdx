@@ -1,0 +1,570 @@
+---
+title: Environment Variables
+description: Complete reference for all GAIA environment variables and configuration options
+---
+
+## Overview
+
+GAIA uses environment variables for configuration. All variables should be set in the `apps/api/.env` file.
+
+<Warning>
+  Never commit your `.env` file to version control. Always use `.env.example` as a template.
+</Warning>
+
+## Quick Setup
+
+Create your environment file:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+Then edit `apps/api/.env` with your configuration values.
+
+## Core Configuration
+
+### Environment Type
+
+```bash
+ENV=development  # Options: development, production
+```
+
+- **`development`**: Relaxed validation, detailed logging, optional services
+- **`production`**: Strict validation, all services required, optimized settings
+
+### Application URLs
+
+```bash
+HOST=http://localhost:8000
+FRONTEND_URL=http://localhost:3000
+```
+
+- **`HOST`**: Backend API URL (used for OAuth callbacks and webhooks)
+- **`FRONTEND_URL`**: Frontend application URL (used for CORS and redirects)
+
+<Warning>
+  In production, these must be your actual domain URLs with HTTPS enabled.
+</Warning>
+
+## Database Connections
+
+### PostgreSQL
+
+```bash
+POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/langgraph
+```
+
+Used for:
+- User accounts and authentication
+- Application state and metadata
+- LangGraph agent state persistence
+
+**Format**: `postgresql://[user]:[password]@[host]:[port]/[database]`
+
+### MongoDB
+
+```bash
+MONGO_DB=mongodb://mongo:27017/gaia
+```
+
+Used for:
+- Conversation history
+- Flexible document storage
+- Agent memory and context
+
+**Format**: `mongodb://[host]:[port]/[database]`
+
+### Redis
+
+```bash
+REDIS_URL=redis://redis:6379
+```
+
+Used for:
+- Caching
+- Session management
+- ARQ task queue
+- Real-time event handling
+
+**Format**: `redis://[host]:[port]`
+
+### ChromaDB
+
+```bash
+CHROMADB_HOST=chromadb
+CHROMADB_PORT=8000
+```
+
+Used for:
+- Vector embeddings storage
+- Semantic search
+- Memory retrieval
+
+### RabbitMQ
+
+```bash
+RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+```
+
+Used for:
+- Inter-service messaging
+- Event distribution
+- Asynchronous task coordination
+
+**Format**: `amqp://[user]:[password]@[host]:[port]/`
+
+## Authentication
+
+### WorkOS (Required)
+
+```bash
+WORKOS_API_KEY=your-workos-api-key
+WORKOS_CLIENT_ID=your-workos-client-id
+WORKOS_COOKIE_PASSWORD=your-random-cookie-secret-min-32-chars
+```
+
+WorkOS provides enterprise-grade authentication and user management.
+
+**Setup**:
+1. Sign up at [workos.com](https://workos.com)
+2. Create a new project
+3. Get your API key and Client ID from the dashboard
+4. Generate a secure cookie password (min 32 characters)
+
+<Warning>
+  The `WORKOS_COOKIE_PASSWORD` must be at least 32 characters long and cryptographically random. Generate it using:
+  ```bash
+  openssl rand -base64 32
+  ```
+</Warning>
+
+### Google OAuth (Optional in Development)
+
+```bash
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+```
+
+Enables Google Sign-In as an authentication option.
+
+**Setup**:
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select existing
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URIs:
+   - `http://localhost:8000/api/v1/oauth/google/callback` (development)
+   - `https://yourdomain.com/api/v1/oauth/google/callback` (production)
+
+## AI & LLM Services
+
+### OpenAI (Required)
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+Primary LLM provider for GAIA's AI capabilities.
+
+**Get API Key**: [platform.openai.com](https://platform.openai.com/api-keys)
+
+### Google AI
+
+```bash
+GOOGLE_API_KEY=your-google-ai-api-key
+```
+
+Used for Gemini models and Google AI services.
+
+**Get API Key**: [ai.google.dev](https://ai.google.dev)
+
+### OpenRouter
+
+```bash
+OPENROUTER_API_KEY=your-openrouter-key
+```
+
+Provides access to multiple LLM providers through a unified API.
+
+**Get API Key**: [openrouter.ai](https://openrouter.ai/keys)
+
+## Integration Services
+
+### Composio (Recommended)
+
+```bash
+COMPOSIO_KEY=your-composio-key
+COMPOSIO_WEBHOOK_SECRET=your-webhook-secret
+```
+
+Integration platform providing 100+ app connections.
+
+**Get API Key**: [composio.dev](https://app.composio.dev)
+
+### Tavily (Recommended)
+
+```bash
+TAVILY_API_KEY=your-tavily-key
+```
+
+Web search API optimized for LLMs.
+
+**Get API Key**: [tavily.com](https://tavily.com)
+
+### Firecrawl
+
+```bash
+FIRECRAWL_API_KEY=your-firecrawl-key
+```
+
+Web scraping and content extraction.
+
+**Get API Key**: [firecrawl.dev](https://firecrawl.dev)
+
+## Voice Agent Configuration
+
+Required for voice interaction features:
+
+```bash
+# LiveKit (Real-time communication)
+LIVEKIT_URL=wss://your-livekit-server.com
+LIVEKIT_API_KEY=your-livekit-api-key
+LIVEKIT_API_SECRET=your-livekit-api-secret
+
+# Deepgram (Speech-to-Text)
+DEEPGRAM_API_KEY=your-deepgram-key
+
+# ElevenLabs (Text-to-Speech)
+ELEVENLABS_API_KEY=your-elevenlabs-key
+ELEVENLABS_TTS_MODEL=eleven_turbo_v2_5
+ELEVENLABS_VOICE_ID=your-voice-id
+
+# AssemblyAI (Audio Transcription)
+ASSEMBLYAI_API_KEY=your-assemblyai-key
+
+# Backend connection for voice agent
+GAIA_BACKEND_URL=http://gaia-backend:80
+AGENT_SECRET=your-secure-agent-secret
+```
+
+**Setup Guides**:
+- [LiveKit](https://livekit.io)
+- [Deepgram](https://deepgram.com)
+- [ElevenLabs](https://elevenlabs.io)
+- [AssemblyAI](https://www.assemblyai.com)
+
+## Bot Configuration
+
+For Discord, Slack, and Telegram integrations:
+
+```bash
+# Internal API key for bot authentication
+GAIA_BOT_API_KEY=your-secure-internal-api-key
+
+# Discord
+DISCORD_BOT_TOKEN=your-discord-bot-token
+DISCORD_CLIENT_ID=your-discord-client-id
+
+# Slack
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+SLACK_SIGNING_SECRET=your-signing-secret
+SLACK_APP_TOKEN=xapp-your-app-token
+
+# Telegram
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+```
+
+**Setup Guides**:
+- [Discord Bot Setup](https://discord.com/developers/applications)
+- [Slack Bot Setup](https://api.slack.com/apps)
+- [Telegram Bot Setup](https://core.telegram.org/bots/tutorial)
+
+## Media & Storage
+
+### Cloudinary
+
+```bash
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+```
+
+Cloud storage for images, videos, and media files.
+
+**Get Credentials**: [cloudinary.com](https://cloudinary.com)
+
+## Communication Services
+
+### Resend (Email)
+
+```bash
+RESEND_API_KEY=re_...
+RESEND_AUDIENCE_ID=your-audience-id
+```
+
+Transactional email service for notifications.
+
+**Get API Key**: [resend.com](https://resend.com)
+
+## Monitoring & Analytics
+
+### Sentry (Error Tracking)
+
+```bash
+SENTRY_DSN=https://...@sentry.io/...
+```
+
+**Setup**: [sentry.io](https://sentry.io)
+
+### PostHog (Analytics)
+
+```bash
+POSTHOG_API_KEY=phc_...
+```
+
+**Setup**: [posthog.com](https://posthog.com)
+
+### Opik (LLM Observability)
+
+```bash
+OPIK_API_KEY=your-opik-key
+OPIK_WORKSPACE=your-workspace
+```
+
+**Setup**: [comet.com/opik](https://www.comet.com/site/products/opik/)
+
+### LangSmith (LLM Tracing)
+
+```bash
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your-langsmith-key
+```
+
+**Setup**: [smith.langchain.com](https://smith.langchain.com)
+
+## Memory & Knowledge
+
+### Mem0
+
+```bash
+MEM0_API_KEY=your-mem0-key
+MEM0_ORG_ID=your-org-id
+MEM0_PROJECT_ID=your-project-id
+```
+
+Long-term memory management for AI agents.
+
+**Setup**: [mem0.ai](https://mem0.ai)
+
+### LlamaIndex
+
+```bash
+LLAMA_INDEX_KEY=your-llamaindex-key
+```
+
+## Additional Services
+
+### E2B (Code Execution)
+
+```bash
+E2B_API_KEY=your-e2b-key
+```
+
+Secure code execution sandbox.
+
+**Setup**: [e2b.dev](https://e2b.dev)
+
+### OpenWeather
+
+```bash
+OPENWEATHER_API_KEY=your-openweather-key
+```
+
+Weather data and forecasts.
+
+**Setup**: [openweathermap.org](https://openweathermap.org/api)
+
+### Dodo Payments
+
+```bash
+DODO_PAYMENTS_API_KEY=your-dodo-key
+DODO_WEBHOOK_PAYMENTS_SECRET=your-webhook-secret
+```
+
+Payment processing integration.
+
+## MCP OAuth Credentials
+
+Model Context Protocol integrations:
+
+```bash
+MCP_ENCRYPTION_KEY=your-encryption-key
+
+# Vercel
+VERCEL_MCP_CLIENT_ID=your-vercel-client-id
+
+# Notion
+NOTION_MCP_CLIENT_ID=your-notion-client-id
+NOTION_MCP_CLIENT_SECRET=your-notion-secret
+
+# Figma
+FIGMA_MCP_CLIENT_ID=your-figma-client-id
+FIGMA_MCP_CLIENT_SECRET=your-figma-secret
+```
+
+## Infisical Secrets Management
+
+<Note>
+  Infisical is optional but recommended for production. It allows centralized secret management.
+</Note>
+
+```bash
+INFISICAL_PROJECT_ID=your-project-id
+INFISICAL_MACHINE_IDENTITY_CLIENT_ID=your-client-id
+INFISICAL_MACHINE_IDENTITY_CLIENT_SECRET=your-client-secret
+```
+
+**Setup**: [infisical.com](https://infisical.com)
+
+## Advanced Configuration
+
+### Profiling
+
+```bash
+ENABLE_PROFILING=false
+PROFILING_SAMPLE_RATE=1.0  # 0.0 to 1.0
+```
+
+Enable performance profiling (development only).
+
+### Debug Flags
+
+```bash
+DEBUG_EMAIL_PROCESSING=false
+```
+
+Enable verbose debug logging for specific features.
+
+### Feature Flags
+
+```bash
+SKILL_LEARNING_ENABLED=false
+```
+
+Toggle experimental features.
+
+## Environment-Specific Configurations
+
+### Development
+
+```bash
+ENV=development
+HOST=http://localhost:8000
+FRONTEND_URL=http://localhost:3000
+
+# Use Docker container hostnames
+POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/postgres
+MONGO_DB=mongodb://mongo:27017/gaia
+REDIS_URL=redis://redis:6379
+CHROMADB_HOST=chromadb
+CHROMADB_PORT=8000
+RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+
+# Minimal required keys
+WORKOS_API_KEY=your-workos-api-key
+WORKOS_CLIENT_ID=your-workos-client-id
+WORKOS_COOKIE_PASSWORD=generate-secure-password-min-32-chars
+OPENAI_API_KEY=sk-your-openai-key
+```
+
+### Production
+
+```bash
+ENV=production
+HOST=https://api.yourdomain.com
+FRONTEND_URL=https://yourdomain.com
+
+# Use container hostnames in Docker
+# Or actual hostnames if services are external
+POSTGRES_URL=postgresql://user:password@postgres:5432/langgraph
+MONGO_DB=mongodb://mongo:27017/gaia
+REDIS_URL=redis://redis:6379
+CHROMADB_HOST=chromadb
+CHROMADB_PORT=8000
+RABBITMQ_URL=amqp://user:password@rabbitmq:5672/
+
+# All required services
+WORKOS_API_KEY=prod-workos-key
+WORKOS_CLIENT_ID=prod-workos-client
+WORKOS_COOKIE_PASSWORD=secure-random-string-min-32-chars
+OPENAI_API_KEY=sk-prod-openai-key
+GOOGLE_CLIENT_ID=prod-google-client
+GOOGLE_CLIENT_SECRET=prod-google-secret
+COMPOSIO_KEY=prod-composio-key
+TAVILY_API_KEY=prod-tavily-key
+# ... add all required production keys
+```
+
+<Warning>
+  In production:
+  - Use strong, unique passwords for all services
+  - Enable SSL/TLS for all database connections
+  - Use secrets management (Infisical, AWS Secrets Manager, etc.)
+  - Never use default passwords
+  - Rotate credentials regularly
+</Warning>
+
+## Security Best Practices
+
+1. **Never commit `.env` files**: Add to `.gitignore`
+2. **Use strong passwords**: Minimum 32 characters for secrets
+3. **Rotate credentials**: Change API keys and passwords regularly
+4. **Limit API key permissions**: Use least-privilege principle
+5. **Use secrets management**: Consider Infisical, Vault, or cloud-native solutions
+6. **Enable HTTPS**: Always use HTTPS in production
+7. **Restrict CORS**: Set `FRONTEND_URL` to your actual domain
+8. **Monitor access**: Enable logging and monitoring services
+
+## Validation
+
+GAIA validates environment variables on startup:
+
+- **Production mode**: All required variables must be set
+- **Development mode**: Optional variables can be omitted
+- **Warnings**: Missing optional keys will show warnings
+
+To disable validation warnings:
+```bash
+SHOW_MISSING_KEY_WARNINGS=false
+```
+
+## Troubleshooting
+
+### Variables Not Loading
+
+1. Ensure `.env` file is in `apps/api/` directory
+2. Check file permissions: `chmod 600 apps/api/.env`
+3. Verify no syntax errors in `.env` file
+4. Restart Docker containers after changes
+
+### Invalid Variable Format
+
+Common issues:
+- Missing quotes for values with spaces
+- Incorrect URL formats
+- Typos in variable names
+- Missing required variables
+
+### Connection Errors
+
+If services can't connect:
+1. Verify hostnames match Docker service names
+2. Check ports are not blocked
+3. Ensure database containers are healthy
+4. Review logs: `docker compose logs [service]`
+
+## Next Steps
+
+With environment variables configured:
+- Proceed to [Database Setup](/self-hosting/database-setup)
+- Or jump to [Production Deployment](/self-hosting/production-deployment)

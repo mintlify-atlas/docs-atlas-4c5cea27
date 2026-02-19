@@ -1,0 +1,383 @@
+---
+title: API Architecture
+description: Learn about GAIA's FastAPI application structure, middleware, and lifecycle management
+---
+
+# API Architecture
+
+GAIA's backend is built with **FastAPI**, a modern, high-performance Python web framework. The API follows a layered architecture with clear separation of concerns.
+
+## Application Factory Pattern
+
+The API uses the factory pattern to create and configure the FastAPI application instance.
+
+### Creating the Application
+
+```python
+from app.core.app_factory import create_app
+from fastapi import FastAPI
+from fastapi.responses import UJSONResponse
+
+def create_app() -> FastAPI:
+    """
+    Create and configure a FastAPI application instance.
+    """
+    app = FastAPI(
+        lifespan=lifespan,
+        title="GAIA API",
+        description="Backend for General-purpose AI assistant (GAIA)",
+        contact={
+            "name": "The Experience Company",
+            "url": "http://heygaia.io",
+            "email": "hi@heygaia.io",
+        },
+        docs_url=None if settings.ENV == "production" else "/docs",
+        redoc_url=None if settings.ENV == "production" else "/redoc",
+        default_response_class=UJSONResponse,
+    )
+
+    configure_middleware(app)
+
+    app.include_router(api_router, prefix="/api/v1")
+    app.include_router(health_router)
+
+    app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+    return app
+```
+
+Key features:
+- **UJSONResponse**: Uses ujson for faster JSON serialization
+- **Environment-based docs**: API docs disabled in production
+- **Lifespan management**: Handles startup/shutdown events
+- **Modular routing**: API versioning with `/api/v1` prefix
+
+## Middleware Stack
+
+Middleware is configured in order and executes in a stack-like manner.
+
+### Middleware Configuration
+
+```python
+from app.core.middleware import configure_middleware
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi.middleware import SlowAPIMiddleware
+
+def configure_middleware(app: FastAPI) -> None:
+    """
+    Configure middleware for the FastAPI application.
+    """
+    # Attach limiter to app state
+    app.state.limiter = limiter
+
+    # Exception handler for rate limiting
+    app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
+
+    # Add rate limiting middleware
+    app.add_middleware(SlowAPIMiddleware)
+
+    # Add pyinstrument profiling middleware for detailed call stack analysis
+    app.add_middleware(ProfilingMiddleware)
+
+    # Add logging middleware
+    app.add_middleware(LoggingMiddleware)
+
+    # Configure CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_allowed_origins(),
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=["*"],
+    )
+
+    # Add WorkOS authentication middleware
+    workos_client = AsyncWorkOSClient(
+        api_key=settings.WORKOS_API_KEY,
+        client_id=settings.WORKOS_CLIENT_ID
+    )
+    app.add_middleware(WorkOSAuthMiddleware, workos_client=workos_client)
+```
+
+### Available Middleware
+
+#### 1. WorkOS Authentication
+
+Handles authentication using WorkOS for session management.
+
+```python
+from app.api.v1.middleware import WorkOSAuthMiddleware
+```
+
+#### 2. Rate Limiting
+
+Protects endpoints from abuse using SlowAPI.
+
+```python
+from app.api.v1.middleware import limiter
+
+@router.post("/chat/stream")
+@limiter.limit("60/minute")
+async def chat_endpoint(request: Request):
+    pass
+```
+
+#### 3. Logging Middleware
+
+Logs all requests and responses with timing information.
+
+```python
+from app.api.v1.middleware import LoggingMiddleware, log_function_call
+
+@log_function_call
+async def my_service_function():
+    pass
+```
+
+#### 4. Profiling Middleware
+
+Optional performance profiling with pyinstrument.
+
+```python
+from app.api.v1.middleware import ProfilingMiddleware
+```
+
+#### 5. CORS Configuration
+
+Environment-based CORS origin management:
+
+```python
+def get_allowed_origins() -> list[str]:
+    allowed_origins = [settings.FRONTEND_URL]
+
+    if settings.ENV == "production":
+        allowed_origins.extend([
+            "https://heygaia.io",
+            "https://www.heygaia.io",
+            "https://heygaia.app",
+        ])
+    else:
+        allowed_origins.extend([
+            "http://localhost:5173",
+            "http://localhost:3000",
+        ])
+
+    return allowed_origins
+```
+
+## Application Lifespan
+
+Lifespan events handle startup and shutdown operations.
+
+### Lifespan Context Manager
+
+```python
+from contextlib import asynccontextmanager
+from app.core.lifespan import lifespan
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan context manager with lazy providers.
+    Handles startup and shutdown events.
+    """
+    try:
+        await unified_startup("main_app")
+        yield
+
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+        raise RuntimeError("Startup failed") from e
+
+    finally:
+        await unified_shutdown("main_app")
+```
+
+### Lazy Provider System
+
+GAIA uses a lazy provider system for optimal startup performance:
+
+```python
+from app.core.lazy_loader import lazy_provider, providers, MissingKeyStrategy
+
+@lazy_provider(
+    name="postgresql_engine",
+    required_keys=[settings.POSTGRES_URL],
+    strategy=MissingKeyStrategy.WARN,
+    auto_initialize=False,
+)
+async def init_postgresql_engine() -> AsyncEngine:
+    """Initialize PostgreSQL async engine with proper connection pooling."""
+    logger.debug("Initializing PostgreSQL async engine")
+
+    postgres_url: str = settings.POSTGRES_URL
+    url = postgres_url.replace("postgresql://", "postgresql+asyncpg://")
+
+    engine = create_async_engine(
+        url=url,
+        future=True,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+    )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    logger.info("PostgreSQL engine initialized")
+    return engine
+```
+
+Access providers:
+
+```python
+# Get provider (async)
+engine = await providers.aget("postgresql_engine")
+
+# Check if initialized
+if providers.is_initialized("postgresql_engine"):
+    # Use provider
+    pass
+```
+
+## Dependency Injection
+
+FastAPI's dependency injection system is used throughout the API.
+
+### Current User Dependency
+
+```python
+from app.api.v1.dependencies.oauth_dependencies import get_current_user
+from fastapi import Depends
+
+@router.get("/me")
+async def get_me(user: dict = Depends(get_current_user)):
+    """
+    Returns the current authenticated user's details.
+    """
+    return {
+        "message": "User retrieved successfully",
+        **user,
+    }
+```
+
+### Database Session Dependency
+
+```python
+from app.db.postgresql import get_db_session
+from sqlalchemy.ext.asyncio import AsyncSession
+
+@router.get("/items")
+async def get_items(db: AsyncSession = Depends(get_db_session)):
+    result = await db.execute(select(Item))
+    return result.scalars().all()
+```
+
+### Rate Limiting Dependency
+
+```python
+from app.api.v1.middleware.tiered_rate_limiter import tiered_rate_limit
+
+@router.post("/chat/stream")
+@tiered_rate_limit(
+    feature="chat_messages",
+    count=1,
+    cost_per_unit=0.0001
+)
+async def chat_stream(user: dict = Depends(get_current_user)):
+    pass
+```
+
+## Routing Structure
+
+API routes are organized by feature domain:
+
+```
+app/api/v1/
+├── routes.py           # Main router aggregator
+├── endpoints/
+│   ├── chat.py         # Chat endpoints
+│   ├── user.py         # User management
+│   ├── workflows.py    # Workflow management
+│   ├── memory.py       # Memory storage
+│   ├── goals.py        # Goals and tasks
+│   ├── calendar.py     # Calendar integration
+│   ├── mail.py         # Email integration
+│   └── ...
+├── middleware/
+│   ├── auth.py         # Authentication
+│   ├── logging.py      # Request logging
+│   ├── profiling.py    # Performance profiling
+│   └── rate_limiter.py # Rate limiting
+└── dependencies/
+    └── oauth_dependencies.py
+```
+
+### Example Router Definition
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from app.api.v1.dependencies.oauth_dependencies import get_current_user
+
+router = APIRouter()
+
+@router.get("/me", response_model=dict)
+async def get_me(
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Returns the current authenticated user's details.
+    Uses the dependency injection to fetch user data.
+    """
+    onboarding_status = await get_user_onboarding_status(user["user_id"])
+
+    return {
+        "message": "User retrieved successfully",
+        **user,
+        "onboarding": onboarding_status,
+    }
+```
+
+## Error Handling
+
+GAIA uses FastAPI's exception handling system:
+
+```python
+from fastapi import HTTPException
+
+async def get_user_by_id(user_id: str) -> Optional[dict]:
+    """Get user by ID from database."""
+    try:
+        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        if user:
+            user["_id"] = str(user["_id"])
+        return user
+    except Exception as e:
+        logger.error(f"Error fetching user {user_id}: {e}")
+        raise HTTPException(status_code=404, detail="User not found")
+```
+
+## Configuration Management
+
+Settings are managed using Pydantic with environment variables:
+
+```python
+from app.config.settings import settings
+
+# Access configuration
+db_url = settings.POSTGRES_URL
+redis_url = settings.REDIS_URL
+env = settings.ENV  # "development" | "staging" | "production"
+```
+
+## Best Practices
+
+1. **Use dependency injection** for shared logic and database access
+2. **Implement proper error handling** with meaningful HTTP status codes
+3. **Use Pydantic models** for request/response validation
+4. **Apply rate limiting** to protect endpoints
+5. **Log important operations** using structured logging
+6. **Use background tasks** for non-blocking operations
+7. **Leverage lazy loading** for optimal startup performance
+8. **Follow RESTful conventions** for endpoint design

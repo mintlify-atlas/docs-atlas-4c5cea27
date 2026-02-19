@@ -1,0 +1,447 @@
+---
+title: "Email Management"
+description: "Manage your Gmail inbox efficiently with AI-powered email features"
+---
+
+## Overview
+
+GAIA integrates with Gmail to help you manage your inbox, compose messages, and automate email workflows. Use AI to summarize emails, draft responses, and take bulk actions on messages.
+
+## Setting up email integration
+
+<Steps>
+  <Step title="Connect Gmail">
+    Navigate to **Settings** > **Integrations** and click **Connect Gmail**.
+  </Step>
+  
+  <Step title="Authorize access">
+    Grant GAIA permission to read, send, and manage your emails.
+  </Step>
+  
+  <Step title="Start managing emails">
+    Once connected, access your inbox from the **Mail** section in the sidebar.
+  </Step>
+</Steps>
+
+<Note>
+  GAIA connects to your Gmail account using secure OAuth authentication. Your credentials are never stored.
+</Note>
+
+## Inbox overview
+
+### Email list view
+
+The main email view displays:
+
+- **Sender**: Who sent the email
+- **Subject**: Email subject line
+- **Preview**: First few lines of the email body
+- **Date**: When the email was received
+- **Status indicators**: Unread, starred, or has attachments
+
+### Loading and pagination
+
+Emails are loaded in batches of 20 for better performance. Scroll to load more messages automatically.
+
+The inbox uses efficient pagination from `apps/web/src/features/mail/api/mailApi.ts:13`.
+
+### Search and filters
+
+Find specific emails quickly:
+
+- **Text search**: Search by sender, subject, or content
+- **Status filters**: Show unread, starred, or archived messages
+- **Date filters**: Find emails from specific time periods
+- **Label filters**: Filter by Gmail labels
+
+<Tip>
+  Use Gmail search syntax for advanced queries, like `from:client@example.com subject:invoice`.
+</Tip>
+
+## Reading emails
+
+### Opening messages
+
+Click any email to view the full content:
+
+- Full email body with proper formatting
+- Attachments (click to download)
+- Sender details and reply-to address
+- Email headers and metadata
+
+### Email threads
+
+GAIA displays email conversations as threads:
+
+- See all messages in the conversation
+- Collapsed view for easy navigation
+- Expand individual messages to read them
+- Thread context helps understand the conversation flow
+
+Threads are retrieved via `apps/web/src/features/mail/api/mailApi.ts:347`.
+
+### AI summaries
+
+Get instant email summaries powered by AI:
+
+<Steps>
+  <Step title="Open the email">
+    Click on any email in your inbox to view it.
+  </Step>
+  
+  <Step title="Click Summarize">
+    Look for the **Summarize** button in the email viewer.
+  </Step>
+  
+  <Step title="Read the summary">
+    GAIA will analyze the email and provide a concise summary of the key points, action items, and important information.
+  </Step>
+</Steps>
+
+Summaries are especially useful for:
+- Long emails or threads
+- Complex discussions
+- Quick triage of your inbox
+- Understanding emails in different languages
+
+<Note>
+  Email summaries are generated using AI and include importance scoring from `apps/web/src/features/mail/api/mailApi.ts:291`.
+</Note>
+
+## Email actions
+
+### Basic actions
+
+Perform common email operations:
+
+<AccordionGroup>
+  <Accordion title="Mark as read/unread">
+    - Click the envelope icon on an email
+    - Or ask GAIA: "Mark this email as read"
+    - Keep track of messages you need to revisit
+  </Accordion>
+  
+  <Accordion title="Star important emails">
+    - Click the star icon to mark important messages
+    - Starred emails are easier to find later
+    - Filter your inbox to show only starred messages
+  </Accordion>
+  
+  <Accordion title="Archive emails">
+    - Remove emails from inbox without deleting them
+    - Archived emails can be found in Gmail's All Mail
+    - Great for keeping inbox clean while preserving history
+  </Accordion>
+  
+  <Accordion title="Move to trash">
+    - Delete emails you don't need
+    - Trashed emails can be restored within 30 days
+    - Or use untrash to restore immediately
+  </Accordion>
+</AccordionGroup>
+
+All actions can be performed via the UI or by asking GAIA in chat.
+
+### Bulk operations
+
+Manage multiple emails at once:
+
+<Steps>
+  <Step title="Select emails">
+    Use checkboxes to select multiple messages in your inbox.
+  </Step>
+  
+  <Step title="Choose action">
+    From the bulk action menu, select:
+    - **Mark as read/unread**: Update read status for all selected
+    - **Star/Unstar**: Mark multiple as important
+    - **Archive**: Clean up inbox in bulk
+    - **Trash**: Delete multiple messages
+  </Step>
+  
+  <Step title="Confirm">
+    The action applies to all selected emails immediately.
+  </Step>
+</Steps>
+
+Bulk operations are optimized for performance and use dedicated API endpoints at `apps/web/src/features/mail/api/mailApi.ts:105`.
+
+<Warning>
+  Bulk delete operations are permanent after 30 days. Review your selections carefully.
+</Warning>
+
+## Composing emails
+
+### Manual composition
+
+<Steps>
+  <Step title="Click Compose">
+    Find the **Compose** button in the mail interface.
+  </Step>
+  
+  <Step title="Fill in details">
+    Enter the email information:
+    - **To**: Recipient email addresses
+    - **Cc/Bcc**: Additional recipients (optional)
+    - **Subject**: Email subject line
+    - **Body**: Your message content
+    - **Attachments**: Upload files (optional)
+  </Step>
+  
+  <Step title="Send or save draft">
+    Click **Send** to deliver the email, or **Save Draft** to finish later.
+  </Step>
+</Steps>
+
+### AI-powered composition
+
+Let GAIA write emails for you:
+
+<Steps>
+  <Step title="Describe the email">
+    Tell GAIA what you want to write: "Compose an email to the team about the project update"
+  </Step>
+  
+  <Step title="Provide context">
+    Give key points or information to include:
+    - Main message
+    - Tone (formal, friendly, professional)
+    - Length preference
+    - Action items or next steps
+  </Step>
+  
+  <Step title="Review and refine">
+    GAIA generates a draft. You can:
+    - Use it as-is
+    - Ask GAIA to revise: "Make it more concise"
+    - Edit manually before sending
+  </Step>
+  
+  <Step title="Send">
+    Once satisfied, send the email directly from GAIA.
+  </Step>
+</Steps>
+
+<Tip>
+  AI composition works great for common email types: follow-ups, meeting requests, status updates, thank you notes, and more.
+</Tip>
+
+### AI writing options
+
+Customize AI-generated emails with these options:
+
+- **Writing style**: Professional, friendly, formal, casual
+- **Content length**: Brief, standard, detailed
+- **Clarity option**: Concise, balanced, comprehensive
+- **Tone**: Adjust for your audience and context
+
+These options are available via the AI compose interface from `apps/web/src/features/mail/api/mailApi.ts:276`.
+
+### Reply and forward
+
+Respond to emails efficiently:
+
+**Reply:**
+- Click **Reply** on any email
+- GAIA pre-fills recipient and subject
+- Write your response or use AI to draft it
+
+**Reply All:**
+- Respond to all recipients in a thread
+- Useful for group conversations
+
+**Forward:**
+- Share emails with others
+- Add context or notes before forwarding
+
+### Drafts
+
+Work on emails over time:
+
+- Drafts are saved automatically in Gmail
+- Resume editing from your draft folder
+- Send drafts when ready using the **Send Draft** button
+- Draft sending is handled via `apps/web/src/features/mail/api/mailApi.ts:258`
+
+## Email intelligence
+
+### Importance detection
+
+GAIA analyzes emails to determine importance:
+
+- **High importance**: Urgent or critical messages
+- **Medium importance**: Standard work emails
+- **Low importance**: Newsletters, notifications
+
+Important emails are highlighted in your inbox, helping you prioritize.
+
+### Automatic summaries
+
+GAIA can automatically summarize incoming emails:
+
+- Enable in **Settings** > **Email** > **Auto-summarize**
+- Summaries include key points and action items
+- Great for processing high-volume inboxes
+- Summaries are cached for fast access at `apps/web/src/features/mail/api/mailApi.ts:291`
+
+<Note>
+  Bulk summary retrieval is optimized to fetch summaries for multiple emails at once from `apps/web/src/features/mail/api/mailApi.ts:319`.
+</Note>
+
+### Smart search
+
+Find emails using natural language:
+
+- "Show me emails from last week about the client project"
+- "Find unread messages from Sarah"
+- "Search for emails with attachments from this month"
+
+GAIA translates your query into Gmail search syntax automatically.
+
+## Email workflows
+
+### Automated processing
+
+Create workflows to handle emails automatically:
+
+- **Auto-archive**: Archive newsletters or low-priority senders
+- **Auto-label**: Categorize emails by sender or subject
+- **Auto-forward**: Forward specific emails to other accounts
+- **Auto-respond**: Send automatic replies to common queries
+
+See the [Workflow Creation guide](/guide/workflow-creation) for details.
+
+### Email-triggered workflows
+
+Trigger actions when emails arrive:
+
+- Create todos from emails with action items
+- Add calendar events from meeting invitations
+- Send notifications for important emails
+- Run custom automation based on email content
+
+### Integration with other features
+
+**Calendar:**
+- Create events from email meeting requests
+- Add meeting attendees from email threads
+- Schedule follow-ups directly from emails
+
+**Todos:**
+- Convert action items to tasks
+- Link todos to original emails for context
+- Set due dates based on email urgency
+
+**Chat:**
+- Ask questions about your emails
+- Get email summaries in conversation
+- Manage email actions through natural language
+
+## Advanced features
+
+### Contact management
+
+GAIA learns from your email interactions:
+
+- Frequently contacted people appear in suggestions
+- Auto-complete for email addresses
+- View contact history and recent emails
+- Quick access from the contact list interface
+
+### Email templates
+
+Create reusable email templates:
+
+1. Write a common email (e.g., meeting request)
+2. Save as template with variables (e.g., `[meeting time]`)
+3. Reuse the template and fill in variables
+4. Save time on repetitive emails
+
+### Attachments
+
+Manage email attachments:
+
+- **View**: Preview attachments in the email viewer
+- **Download**: Save attachments to your device
+- **Upload**: Attach files when composing
+- **AI analysis**: Ask GAIA about attachment contents
+
+### Email scheduling
+
+Schedule emails to send later:
+
+- Compose the email now
+- Set a future send time
+- Email sends automatically at the scheduled time
+- Great for time zone differences or optimal send times
+
+## Tips for effective email management
+
+<CardGroup cols={2}>
+  <Card title="Process inbox regularly" icon="inbox">
+    Review emails daily. Use archive, delete, or star to keep inbox clean.
+  </Card>
+  
+  <Card title="Use AI summaries" icon="wand-magic-sparkles">
+    Summarize long emails to save time. Focus on key points and action items.
+  </Card>
+  
+  <Card title="Leverage bulk actions" icon="list-check">
+    Select multiple emails for faster processing. Archive or delete in batches.
+  </Card>
+  
+  <Card title="Create email workflows" icon="diagram-project">
+    Automate repetitive email tasks. Let GAIA handle routine messages.
+  </Card>
+  
+  <Card title="Use search effectively" icon="magnifying-glass">
+    Natural language search finds emails faster than scrolling.
+  </Card>
+  
+  <Card title="Let AI draft replies" icon="pen">
+    Save time composing responses. GAIA can write professional emails quickly.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Emails not loading">
+    1. Check your Gmail connection in Settings
+    2. Verify you have internet connectivity
+    3. Try refreshing the mail view
+    4. Reconnect your Gmail account if needed
+  </Accordion>
+  
+  <Accordion title="Can't send emails">
+    1. Ensure Gmail is properly connected
+    2. Check that you have send permissions
+    3. Verify recipient addresses are valid
+    4. Check for attachment size limits (25MB)
+  </Accordion>
+  
+  <Accordion title="AI summaries not working">
+    1. Ensure you're on a paid plan with AI features
+    2. Try refreshing the email
+    3. Check that the email has sufficient content
+  </Accordion>
+  
+  <Accordion title="Missing emails">
+    1. Check your Gmail filters and labels
+    2. Search in Gmail directly to verify
+    3. Refresh the GAIA mail view
+    4. Check if emails are in spam or trash
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Workflow Creation" icon="diagram-project" href="/guide/workflow-creation">
+    Automate email processing with workflows.
+  </Card>
+  
+  <Card title="Chat Interface" icon="comments" href="/guide/chat-interface">
+    Manage emails through natural language conversations.
+  </Card>
+</CardGroup>

@@ -1,0 +1,477 @@
+---
+title: 'Chat API'
+description: 'Stream AI-powered conversations with background execution'
+---
+
+# Chat API
+
+The Chat API enables streaming conversations with GAIA's AI assistant. It uses Server-Sent Events (SSE) for real-time message streaming with Redis-backed background execution.
+
+## Architecture
+
+The streaming architecture is decoupled from HTTP request lifecycle:
+
+1. Endpoint starts background task for LangGraph execution
+2. Background task publishes chunks to Redis channel
+3. Endpoint subscribes to channel and forwards to HTTP response
+4. If client disconnects, stream continues in background
+5. Conversation is always saved to MongoDB on completion
+
+## Endpoints
+
+### Stream Chat Messages
+
+Stream a chat message with AI assistant.
+
+```bash
+POST /api/v1/chat-stream
+```
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.heygaia.io/api/v1/chat-stream \
+  -H "Cookie: wos_session=YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "x-timezone: America/New_York" \
+  -d '{
+    "message": "What's on my calendar today?",
+    "conversation_id": "conv_123",
+    "history": []
+  }'
+```
+
+```python Python
+import requests
+import json
+
+url = "https://api.heygaia.io/api/v1/chat-stream"
+headers = {
+    "Cookie": "wos_session=YOUR_SESSION_TOKEN",
+    "Content-Type": "application/json",
+    "x-timezone": "America/New_York"
+}
+payload = {
+    "message": "What's on my calendar today?",
+    "conversation_id": "conv_123",
+    "history": []
+}
+
+response = requests.post(url, headers=headers, json=payload, stream=True)
+
+for line in response.iter_lines():
+    if line:
+        decoded_line = line.decode('utf-8')
+        if decoded_line.startswith('data: '):
+            data = decoded_line[6:]  # Remove 'data: ' prefix
+            print(data)
+```
+
+```javascript JavaScript
+const eventSource = new EventSource(
+  'https://api.heygaia.io/api/v1/chat-stream',
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
+    },
+    body: JSON.stringify({
+      message: "What's on my calendar today?",
+      conversation_id: 'conv_123',
+      history: []
+    })
+  }
+);
+
+eventSource.onmessage = (event) => {
+  console.log('Received:', event.data);
+};
+
+eventSource.onerror = (error) => {
+  console.error('Error:', error);
+  eventSource.close();
+};
+```
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="message" type="string" required>
+  The user's message to send to the AI assistant
+</ParamField>
+
+<ParamField body="conversation_id" type="string">
+  Conversation ID to continue an existing conversation. If omitted, a new conversation is created.
+</ParamField>
+
+<ParamField body="history" type="array">
+  Array of previous messages in the conversation. Used for context.
+  
+  Each message object contains:
+  - `type` (string) - "user" or "assistant"
+  - `response` (string) - Message content
+  - `date` (string) - ISO 8601 timestamp
+</ParamField>
+
+<ParamField body="fileIds" type="array">
+  Array of uploaded file IDs to include in the message context
+</ParamField>
+
+<ParamField body="fileData" type="array">
+  Array of file metadata objects with `id`, `name`, `type`, and `url`
+</ParamField>
+
+<ParamField body="selectedWorkflow" type="object">
+  Selected workflow to execute (if applicable)
+  
+  Properties:
+  - `id` (string) - Workflow ID
+  - `title` (string) - Workflow title
+</ParamField>
+
+<ParamField body="replyToMessage" type="object">
+  Message being replied to
+  
+  Properties:
+  - `id` (string) - Message ID
+  - `content` (string) - Message content
+</ParamField>
+
+#### Response Headers
+
+<ResponseField name="Content-Type" type="string">
+  `text/event-stream` - Server-Sent Events format
+</ResponseField>
+
+<ResponseField name="Cache-Control" type="string">
+  `no-cache` - Prevents caching of stream
+</ResponseField>
+
+<ResponseField name="Connection" type="string">
+  `keep-alive` - Maintains connection for streaming
+</ResponseField>
+
+<ResponseField name="X-Stream-Id" type="string">
+  Unique stream ID for cancellation
+</ResponseField>
+
+<ResponseField name="Access-Control-Allow-Origin" type="string">
+  `*` - CORS header for cross-origin requests
+</ResponseField>
+
+<ResponseField name="X-Accel-Buffering" type="string">
+  `no` - Disables Nginx buffering for real-time streaming
+</ResponseField>
+
+#### Stream Events
+
+The response streams data in Server-Sent Events format:
+
+```
+data: {"type": "token", "content": "I"}
+
+data: {"type": "token", "content": " found"}
+
+data: {"type": "token", "content": " 3"}
+
+data: {"type": "tool_call", "tool": "calendar", "status": "started"}
+
+data: {"type": "tool_result", "tool": "calendar", "data": {...}}
+
+data: {"type": "token", "content": " events"}
+
+data: [DONE]
+```
+
+<ResponseField name="type" type="string">
+  Event type:
+  - `token` - Text token from AI response
+  - `tool_call` - Tool execution started
+  - `tool_result` - Tool execution completed
+  - `error` - Error occurred
+  - `metadata` - Additional metadata
+</ResponseField>
+
+### Cancel Stream
+
+Cancel a running chat stream.
+
+```bash
+POST /api/v1/cancel-stream/{stream_id}
+```
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.heygaia.io/api/v1/cancel-stream/stream_abc123 \
+  -H "Cookie: wos_session=YOUR_SESSION_TOKEN"
+```
+
+```python Python
+import requests
+
+stream_id = "stream_abc123"
+url = f"https://api.heygaia.io/api/v1/cancel-stream/{stream_id}"
+
+response = requests.post(url, headers={
+    "Cookie": "wos_session=YOUR_SESSION_TOKEN"
+})
+
+print(response.json())
+```
+
+```javascript JavaScript
+fetch(`https://api.heygaia.io/api/v1/cancel-stream/${streamId}`, {
+  method: 'POST',
+  credentials: 'include'
+})
+  .then(res => res.json())
+  .then(data => console.log(data));
+```
+</CodeGroup>
+
+#### Path Parameters
+
+<ParamField path="stream_id" type="string" required>
+  The stream ID to cancel (from `X-Stream-Id` header)
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Whether the stream was successfully cancelled
+</ResponseField>
+
+<ResponseField name="stream_id" type="string">
+  The cancelled stream ID
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if cancellation failed
+</ResponseField>
+
+```json Response Example
+{
+  "success": true,
+  "stream_id": "stream_abc123"
+}
+```
+
+## Stream Format Details
+
+### Token Events
+
+Text tokens are streamed as they're generated:
+
+```json
+{
+  "type": "token",
+  "content": "Hello"
+}
+```
+
+### Tool Call Events
+
+When the AI uses a tool:
+
+```json
+{
+  "type": "tool_call",
+  "tool": "search_web",
+  "status": "started",
+  "params": {
+    "query": "weather today"
+  }
+}
+```
+
+### Tool Result Events
+
+When a tool completes:
+
+```json
+{
+  "type": "tool_result",
+  "tool": "search_web",
+  "status": "completed",
+  "data": {
+    "results": [...]
+  }
+}
+```
+
+### Error Events
+
+If an error occurs:
+
+```json
+{
+  "type": "error",
+  "error": "Rate limit exceeded",
+  "code": "rate_limit_error"
+}
+```
+
+### Stream Completion
+
+The stream ends with:
+
+```
+data: [DONE]
+```
+
+Or if an error occurred:
+
+```
+data: [STREAM_ERROR]
+```
+
+## Rate Limiting
+
+Chat streaming is subject to rate limits:
+
+- **Free:** 50 messages/hour
+- **Pro:** 500 messages/hour
+- **Team:** 2000 messages/hour
+
+See [Rate Limits](/api/rate-limits) for details.
+
+## Background Execution
+
+The chat stream continues executing in the background even if the client disconnects. This ensures:
+
+- Conversations are always saved to MongoDB
+- Tool executions complete successfully
+- No data loss from network interruptions
+
+<Note>
+  Background tasks are tracked in Redis and automatically cleaned up after completion.
+</Note>
+
+## Error Handling
+
+### Redis Unavailable
+
+If Redis is unavailable, the stream returns an error:
+
+```
+data: [STREAM_ERROR]
+```
+
+### Client Disconnection
+
+If the client disconnects:
+
+```
+Client disconnected, stream {stream_id} continues in background
+```
+
+The conversation is still saved and processing completes.
+
+### Cancellation
+
+When a stream is cancelled:
+
+```json
+{
+  "type": "cancelled",
+  "message": "Stream cancelled by user"
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Handle reconnections">
+    Implement automatic reconnection with exponential backoff:
+    
+    ```javascript
+    let retries = 0;
+    const maxRetries = 3;
+    
+    function connectStream() {
+      const eventSource = new EventSource(streamUrl);
+      
+      eventSource.onerror = (error) => {
+        eventSource.close();
+        
+        if (retries < maxRetries) {
+          retries++;
+          setTimeout(() => {
+            connectStream();
+          }, Math.pow(2, retries) * 1000);
+        }
+      };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Process events asynchronously">
+    Process stream events without blocking the UI:
+    
+    ```javascript
+    const messageQueue = [];
+    
+    eventSource.onmessage = (event) => {
+      messageQueue.push(JSON.parse(event.data));
+      processQueue();
+    };
+    
+    async function processQueue() {
+      while (messageQueue.length > 0) {
+        const event = messageQueue.shift();
+        await handleEvent(event);
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Track stream state">
+    Maintain stream state for UI updates:
+    
+    ```javascript
+    const streamState = {
+      streamId: null,
+      isStreaming: false,
+      currentMessage: '',
+      toolCalls: []
+    };
+    
+    eventSource.onopen = () => {
+      streamState.isStreaming = true;
+      streamState.streamId = response.headers.get('X-Stream-Id');
+    };
+    ```
+  </Accordion>
+
+  <Accordion title="Provide user feedback">
+    Show visual indicators for different stream states:
+    
+    ```javascript
+    function updateUI(event) {
+      switch (event.type) {
+        case 'token':
+          appendToMessage(event.content);
+          break;
+        case 'tool_call':
+          showToolIndicator(event.tool);
+          break;
+        case 'tool_result':
+          hideToolIndicator(event.tool);
+          displayToolResult(event.data);
+          break;
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Todos API" icon="check" href="/api/todos">
+    Manage tasks and projects
+  </Card>
+  <Card title="Workflows API" icon="diagram-project" href="/api/workflows">
+    Automate tasks with workflows
+  </Card>
+</CardGroup>

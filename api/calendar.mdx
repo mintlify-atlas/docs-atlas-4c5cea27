@@ -1,0 +1,315 @@
+---
+title: 'Calendar API'
+description: 'Manage Google Calendar events with batch operations'
+---
+
+# Calendar API
+
+The Calendar API provides comprehensive Google Calendar integration for managing events, calendars, and preferences.
+
+## Authentication
+
+<Warning>
+  Calendar endpoints require Google Calendar integration. Users must connect their Google account before using these endpoints.
+</Warning>
+
+## Endpoints
+
+### List Calendars
+
+Get all calendars for the authenticated user.
+
+```bash
+GET /api/v1/calendar/list
+```
+
+```json Response
+{
+  "calendars": [
+    {
+      "id": "primary",
+      "summary": "John Doe",
+      "description": "Primary calendar",
+      "timeZone": "America/New_York",
+      "colorId": "1",
+      "backgroundColor": "#9fe1e7",
+      "foregroundColor": "#000000",
+      "selected": true,
+      "accessRole": "owner",
+      "primary": true
+    }
+  ]
+}
+```
+
+### Query Events
+
+Query events from selected calendars (POST to avoid URL length limits).
+
+```bash
+POST /api/v1/calendar/events/query
+```
+
+<ParamField body="selected_calendars" type="array">
+  Array of calendar IDs to query
+</ParamField>
+
+<ParamField body="start_date" type="string">
+  Start date in YYYY-MM-DD format
+</ParamField>
+
+<ParamField body="end_date" type="string">
+  End date in YYYY-MM-DD format
+</ParamField>
+
+<ParamField body="max_results" type="integer" default="100">
+  Maximum results per calendar (1-250)
+</ParamField>
+
+<ParamField body="fetch_all" type="boolean" default="true">
+  Fetch all events in date range (recommended for calendar views)
+</ParamField>
+
+```json Request
+{
+  "selected_calendars": ["primary", "work@example.com"],
+  "start_date": "2026-02-19",
+  "end_date": "2026-02-26",
+  "fetch_all": true
+}
+```
+
+```json Response
+{
+  "events": [
+    {
+      "id": "event_123",
+      "summary": "Team Meeting",
+      "description": "Weekly sync",
+      "start": {
+        "dateTime": "2026-02-20T10:00:00-05:00",
+        "timeZone": "America/New_York"
+      },
+      "end": {
+        "dateTime": "2026-02-20T11:00:00-05:00",
+        "timeZone": "America/New_York"
+      },
+      "attendees": [
+        {
+          "email": "colleague@example.com",
+          "displayName": "Jane Smith",
+          "responseStatus": "accepted"
+        }
+      ],
+      "calendarId": "primary",
+      "location": "Conference Room A",
+      "conferenceData": {
+        "entryPoints": [
+          {
+            "entryPointType": "video",
+            "uri": "https://meet.google.com/abc-defg-hij"
+          }
+        ]
+      }
+    }
+  ],
+  "has_more": false,
+  "calendars_truncated": []
+}
+```
+
+### Get Events (Simple GET)
+
+Get calendar events using GET (for simple queries).
+
+```bash
+GET /api/v1/calendar/events
+```
+
+<ParamField query="selected_calendars" type="array">
+  Calendar IDs (comma-separated)
+</ParamField>
+
+<ParamField query="start_date" type="string">
+  Start date (YYYY-MM-DD)
+</ParamField>
+
+<ParamField query="end_date" type="string">
+  End date (YYYY-MM-DD)
+</ParamField>
+
+<ParamField query="max_results" type="integer" default="100">
+  Max results per calendar
+</ParamField>
+
+<ParamField query="fetch_all" type="boolean" default="false">
+  Fetch all events in range
+</ParamField>
+
+### Create Event
+
+Create a new calendar event.
+
+```bash
+POST /api/v1/calendar/event
+```
+
+```json Request
+{
+  "calendar_id": "primary",
+  "summary": "Product Launch",
+  "description": "Launch new feature",
+  "start": {
+    "dateTime": "2026-02-25T14:00:00",
+    "timeZone": "America/New_York"
+  },
+  "end": {
+    "dateTime": "2026-02-25T15:00:00",
+    "timeZone": "America/New_York"
+  },
+  "attendees": [
+    {"email": "team@example.com"}
+  ],
+  "location": "Office",
+  "conferenceDataVersion": 1
+}
+```
+
+### Update Event
+
+Update an existing event.
+
+```bash
+PUT /api/v1/calendar/event
+```
+
+```json Request
+{
+  "event_id": "event_123",
+  "calendar_id": "primary",
+  "summary": "Updated Title",
+  "start": {
+    "dateTime": "2026-02-25T15:00:00",
+    "timeZone": "America/New_York"
+  },
+  "end": {
+    "dateTime": "2026-02-25T16:00:00",
+    "timeZone": "America/New_York"
+  }
+}
+```
+
+### Delete Event
+
+Delete a calendar event.
+
+```bash
+DELETE /api/v1/calendar/event
+```
+
+```json Request
+{
+  "event_id": "event_123",
+  "calendar_id": "primary"
+}
+```
+
+## Batch Operations
+
+### Batch Create Events
+
+Create multiple events in one request.
+
+```bash
+POST /api/v1/calendar/events/batch
+```
+
+```json Request
+{
+  "events": [
+    {
+      "calendar_id": "primary",
+      "summary": "Event 1",
+      "start": {...},
+      "end": {...}
+    },
+    {
+      "calendar_id": "primary",
+      "summary": "Event 2",
+      "start": {...},
+      "end": {...}
+    }
+  ]
+}
+```
+
+```json Response
+{
+  "successful": [
+    {"id": "event_123", "summary": "Event 1"}
+  ],
+  "failed": [
+    {
+      "event": "Event 2",
+      "error": "Invalid time zone"
+    }
+  ]
+}
+```
+
+### Batch Update Events
+
+Update multiple events.
+
+```bash
+PUT /api/v1/calendar/events/batch
+```
+
+### Batch Delete Events
+
+Delete multiple events.
+
+```bash
+DELETE /api/v1/calendar/events/batch
+```
+
+## Calendar Preferences
+
+### Get Preferences
+
+Get user's selected calendars.
+
+```bash
+GET /api/v1/calendar/preferences
+```
+
+```json Response
+{
+  "selected_calendars": ["primary", "work@example.com"]
+}
+```
+
+### Update Preferences
+
+Update selected calendars.
+
+```bash
+PUT /api/v1/calendar/preferences
+```
+
+```json Request
+{
+  "selected_calendars": ["primary", "work@example.com", "personal@example.com"]
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Email API" icon="envelope" href="/api/email">
+    Manage Gmail messages
+  </Card>
+  <Card title="Integrations" icon="plug" href="/api/integrations">
+    Connect services
+  </Card>
+</CardGroup>

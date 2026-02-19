@@ -1,0 +1,267 @@
+---
+title: 'Authentication'
+description: 'Learn how to authenticate API requests with WorkOS session tokens'
+---
+
+# Authentication
+
+The GAIA API uses **WorkOS session-based authentication**. All API requests require a valid session token to be included in the request.
+
+## Authentication Flow
+
+GAIA supports multiple authentication flows for different platforms:
+
+### Web Application (Default)
+
+1. **Initiate OAuth Flow**
+   ```bash
+   GET https://api.heygaia.io/api/v1/oauth/login/workos
+   ```
+
+2. **User Redirected to WorkOS**
+   - User authenticates with WorkOS AuthKit
+   - Supports email/password, social logins, and SSO
+
+3. **OAuth Callback**
+   ```bash
+   GET https://api.heygaia.io/api/v1/oauth/workos/callback?code=AUTH_CODE
+   ```
+
+4. **Session Cookie Set**
+   - `wos_session` cookie is set with sealed session token
+   - Cookie is httpOnly and secure in production
+   - Redirects to frontend with active session
+
+### Desktop Application
+
+1. **Initiate Desktop OAuth**
+   ```bash
+   GET https://api.heygaia.io/api/v1/oauth/login/workos/desktop
+   ```
+
+2. **Desktop Callback**
+   ```bash
+   GET https://api.heygaia.io/api/v1/oauth/workos/desktop/callback?code=AUTH_CODE
+   ```
+   
+   Returns deep link redirect:
+   ```
+   gaia://auth/callback?token=SEALED_SESSION_TOKEN
+   ```
+
+### Mobile Application
+
+1. **Initiate Mobile OAuth**
+   ```bash
+   GET https://api.heygaia.io/api/v1/oauth/login/workos/mobile?redirect_uri=gaiamobile://auth/callback
+   ```
+
+   Response:
+   ```json
+   {
+     "url": "https://auth.workos.com/..."
+   }
+   ```
+
+2. **Mobile Callback**
+   ```bash
+   GET https://api.heygaia.io/api/v1/oauth/workos/mobile/callback?code=AUTH_CODE&state=STATE_TOKEN
+   ```
+   
+   Returns deep link redirect:
+   ```
+   gaiamobile://auth/callback?token=SEALED_SESSION_TOKEN
+   ```
+
+## Making Authenticated Requests
+
+### Using Cookie Header
+
+Include the session token in the `Cookie` header:
+
+<CodeGroup>
+```bash cURL
+curl https://api.heygaia.io/api/v1/todos \
+  -H "Cookie: wos_session=YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+```python Python
+import requests
+
+headers = {
+    "Cookie": "wos_session=YOUR_SESSION_TOKEN",
+    "Content-Type": "application/json"
+}
+
+response = requests.get(
+    "https://api.heygaia.io/api/v1/todos",
+    headers=headers
+)
+```
+
+```javascript JavaScript
+fetch('https://api.heygaia.io/api/v1/todos', {
+  headers: {
+    'Cookie': 'wos_session=YOUR_SESSION_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  credentials: 'include'
+})
+  .then(res => res.json())
+  .then(data => console.log(data));
+```
+</CodeGroup>
+
+### WebSocket Authentication
+
+For WebSocket connections, authentication is handled differently:
+
+#### Browser/Desktop (Cookie-based)
+
+```javascript
+const ws = new WebSocket('wss://api.heygaia.io/api/v1/ws/roadmap');
+// Cookie is automatically sent with WebSocket upgrade request
+```
+
+#### Mobile (Protocol-based)
+
+For mobile apps that cannot send cookies, use the `Sec-WebSocket-Protocol` header:
+
+```javascript
+const ws = new WebSocket(
+  'wss://api.heygaia.io/api/v1/ws/roadmap',
+  ['Bearer', 'YOUR_SESSION_TOKEN']
+);
+```
+
+## Session Token Format
+
+Session tokens are sealed (encrypted) JWT tokens containing:
+
+- **user_id** - Unique user identifier
+- **email** - User's email address
+- **name** - User's display name
+- **picture_url** - User's profile picture URL (optional)
+
+<Warning>
+  Session tokens are encrypted and cannot be decoded without the server's cookie password. Never attempt to parse or modify session tokens.
+</Warning>
+
+## Token Lifecycle
+
+- **Expiration:** Session tokens expire based on WorkOS configuration (typically 7-30 days)
+- **Refresh:** Tokens are automatically refreshed by the authentication middleware
+- **Revocation:** Tokens can be revoked by logging out
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when authentication is missing or invalid:
+
+```json
+{
+  "detail": "Unauthorized: Authentication required"
+}
+```
+
+**Common Causes:**
+- Missing `wos_session` cookie
+- Expired session token
+- Invalid or corrupted token
+
+### 403 Forbidden
+
+Returned when authenticated but not authorized:
+
+```json
+{
+  "detail": "Not authorized to access this resource"
+}
+```
+
+**Common Causes:**
+- Attempting to access another user's resources
+- Insufficient permissions for the operation
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store tokens securely">
+    - Web: Rely on httpOnly cookies (automatically handled)
+    - Mobile: Use secure storage (Keychain on iOS, Keystore on Android)
+    - Desktop: Use secure credential storage
+    - Never store tokens in localStorage or sessionStorage
+  </Accordion>
+
+  <Accordion title="Use HTTPS">
+    - Always use HTTPS in production
+    - Session cookies are marked `secure` in production
+    - Prevents token interception via man-in-the-middle attacks
+  </Accordion>
+
+  <Accordion title="Handle token expiration">
+    - Implement automatic re-authentication when receiving 401 errors
+    - Provide clear UI for users to re-authenticate
+    - Consider implementing token refresh logic
+  </Accordion>
+
+  <Accordion title="Logout properly">
+    - Clear session cookies on logout
+    - Redirect to login page
+    - Invalidate any cached user data
+  </Accordion>
+</AccordionGroup>
+
+## Getting User Information
+
+Authenticated requests automatically include user context. The API identifies the current user from the session token.
+
+User information is accessible via the `get_current_user` dependency:
+
+```python
+user = {
+  "user_id": "65f7a8b9c1234567890abcde",
+  "email": "user@example.com",
+  "name": "John Doe",
+  "picture_url": "https://...",
+  "timezone": "America/New_York"
+}
+```
+
+## Client ID Metadata (OAuth Discovery)
+
+For MCP integrations using URL-formatted client IDs, GAIA provides an OAuth Client ID Metadata Document:
+
+```bash
+GET https://api.heygaia.io/api/v1/oauth/client-metadata.json
+```
+
+Response:
+```json
+{
+  "client_id": "https://api.heygaia.io/api/v1/oauth/client-metadata.json",
+  "client_name": "GAIA",
+  "client_uri": "https://heygaia.com",
+  "redirect_uris": ["https://api.heygaia.io/api/v1/mcp/oauth/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+<Note>
+  This metadata document enables OAuth flows without pre-registration, following the draft-ietf-oauth-client-id-metadata-document specification.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Rate Limits" icon="gauge" href="/api/rate-limits">
+    Understand rate limits and quotas
+  </Card>
+  <Card title="Make Your First Request" icon="rocket" href="/api/chat">
+    Start using the Chat API
+  </Card>
+</CardGroup>

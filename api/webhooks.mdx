@@ -1,0 +1,397 @@
+---
+title: 'Webhooks'
+description: 'Receive real-time notifications for events in your GAIA workspace'
+---
+
+# Webhooks
+
+GAIA supports webhooks for real-time event notifications from payment providers and third-party integrations.
+
+## Supported Webhook Types
+
+### Payment Webhooks (Dodo Payments)
+
+Receive notifications about payment and subscription events:
+
+```bash
+POST https://api.heygaia.io/api/v1/webhook/dodo
+```
+
+#### Payment Events
+
+<AccordionGroup>
+  <Accordion title="payment.succeeded">
+    Triggered when a payment is successfully processed.
+    
+    ```json
+    {
+      "business_id": "biz_123",
+      "type": "payment.succeeded",
+      "timestamp": "2026-02-19T10:00:00Z",
+      "data": {
+        "payment_id": "pay_123",
+        "subscription_id": "sub_123",
+        "customer": {
+          "customer_id": "cus_123",
+          "email": "user@example.com",
+          "name": "John Doe"
+        },
+        "total_amount": 2000,
+        "currency": "USD",
+        "status": "succeeded",
+        "payment_method": "card",
+        "metadata": {
+          "user_id": "65f7a8b9c1234567890abcde"
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="payment.failed">
+    Triggered when a payment fails.
+    
+    Includes `error_code` and `error_message` fields in the data object.
+  </Accordion>
+
+  <Accordion title="payment.processing">
+    Triggered when a payment is being processed (async payment methods).
+  </Accordion>
+
+  <Accordion title="payment.cancelled">
+    Triggered when a payment is cancelled by the user or system.
+  </Accordion>
+</AccordionGroup>
+
+#### Subscription Events
+
+<AccordionGroup>
+  <Accordion title="subscription.active">
+    Triggered when a subscription becomes active.
+    
+    ```json
+    {
+      "business_id": "biz_123",
+      "type": "subscription.active",
+      "timestamp": "2026-02-19T10:00:00Z",
+      "data": {
+        "subscription_id": "sub_123",
+        "product_id": "prod_pro_monthly",
+        "customer": {
+          "customer_id": "cus_123",
+          "email": "user@example.com",
+          "name": "John Doe"
+        },
+        "status": "active",
+        "currency": "USD",
+        "recurring_pre_tax_amount": 2000,
+        "payment_frequency_interval": "month",
+        "next_billing_date": "2026-03-19T10:00:00Z",
+        "metadata": {
+          "user_id": "65f7a8b9c1234567890abcde",
+          "plan_type": "pro"
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="subscription.renewed">
+    Triggered when a subscription is successfully renewed.
+  </Accordion>
+
+  <Accordion title="subscription.cancelled">
+    Triggered when a subscription is cancelled.
+    
+    Includes `cancelled_at` timestamp and `cancel_at_next_billing_date` boolean.
+  </Accordion>
+
+  <Accordion title="subscription.expired">
+    Triggered when a subscription expires.
+  </Accordion>
+
+  <Accordion title="subscription.failed">
+    Triggered when subscription renewal payment fails.
+  </Accordion>
+
+  <Accordion title="subscription.on_hold">
+    Triggered when a subscription is put on hold (e.g., failed payment retry).
+  </Accordion>
+
+  <Accordion title="subscription.plan_changed">
+    Triggered when a user changes their subscription plan.
+  </Accordion>
+</AccordionGroup>
+
+### Integration Webhooks (Composio)
+
+Receive notifications for third-party integration triggers:
+
+```bash
+POST https://api.heygaia.io/api/v1/webhook/composio
+```
+
+#### Event Structure
+
+```json
+{
+  "type": "GMAIL_NEW_EMAIL_RECEIVED",
+  "timestamp": "2026-02-19T10:00:00Z",
+  "connection_id": "conn_123",
+  "connection_nano_id": "nano_123",
+  "trigger_nano_id": "trigger_123",
+  "trigger_id": "trig_123",
+  "user_id": "entity_123",
+  "data": {
+    "message_id": "msg_123",
+    "thread_id": "thread_123",
+    "from": "sender@example.com",
+    "subject": "Important Email",
+    "snippet": "This is the email preview..."
+  }
+}
+```
+
+<ParamField body="type" type="string" required>
+  Trigger type (e.g., GMAIL_NEW_EMAIL_RECEIVED, SLACK_RECEIVE_MESSAGE)
+</ParamField>
+
+<ParamField body="user_id" type="string" required>
+  Entity ID from Composio (mapped to GAIA user_id)
+</ParamField>
+
+<ParamField body="connection_id" type="string" required>
+  Unique connection identifier
+</ParamField>
+
+<ParamField body="data" type="object" required>
+  Event-specific payload data
+</ParamField>
+
+## Webhook Security
+
+### Dodo Payments Verification
+
+Dodo Payments webhooks should be verified using the signature header:
+
+```python
+import hmac
+import hashlib
+
+def verify_dodo_webhook(payload, signature, secret):
+    expected_signature = hmac.new(
+        secret.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return hmac.compare_digest(signature, expected_signature)
+```
+
+<Warning>
+  Always verify webhook signatures to prevent unauthorized webhook calls. Never process unverified webhooks in production.
+</Warning>
+
+### IP Allowlisting
+
+For enhanced security, allowlist webhook source IPs:
+
+- **Dodo Payments:** Contact Dodo support for IP ranges
+- **Composio:** Webhook IPs documented at docs.composio.dev
+
+## Configuring Webhooks
+
+### Dodo Payments
+
+1. Log in to Dodo Payments dashboard
+2. Navigate to **Developers → Webhooks**
+3. Add webhook endpoint: `https://api.heygaia.io/api/v1/webhook/dodo`
+4. Select events to receive
+5. Save webhook configuration
+
+### Composio Triggers
+
+Composio webhooks are automatically configured when you:
+
+1. Connect an integration via GAIA
+2. Enable triggers in integration settings
+3. Composio sends webhook events to GAIA's endpoint
+
+## Webhook Payload Examples
+
+### Payment Succeeded
+
+```json
+{
+  "business_id": "biz_abc123",
+  "type": "payment.succeeded",
+  "timestamp": "2026-02-19T10:30:00Z",
+  "data": {
+    "payment_id": "pay_xyz789",
+    "subscription_id": "sub_pro_123",
+    "business_id": "biz_abc123",
+    "brand_id": "brand_123",
+    "customer": {
+      "customer_id": "cus_456",
+      "email": "user@example.com",
+      "name": "Jane Smith"
+    },
+    "billing": {
+      "city": "San Francisco",
+      "country": "US",
+      "state": "CA",
+      "street": "123 Market St",
+      "zipcode": "94103"
+    },
+    "currency": "USD",
+    "total_amount": 2000,
+    "settlement_amount": 2000,
+    "settlement_currency": "USD",
+    "tax": 0,
+    "settlement_tax": 0,
+    "status": "succeeded",
+    "payment_method": "card",
+    "card_network": "visa",
+    "card_type": "credit",
+    "card_last_four": "4242",
+    "card_issuing_country": "US",
+    "created_at": "2026-02-19T10:30:00Z",
+    "metadata": {
+      "user_id": "65f7a8b9c1234567890abcde",
+      "plan_type": "pro"
+    }
+  }
+}
+```
+
+### Subscription Active
+
+```json
+{
+  "business_id": "biz_abc123",
+  "type": "subscription.active",
+  "timestamp": "2026-02-19T10:30:00Z",
+  "data": {
+    "subscription_id": "sub_pro_123",
+    "product_id": "prod_pro_monthly",
+    "customer": {
+      "customer_id": "cus_456",
+      "email": "user@example.com",
+      "name": "Jane Smith"
+    },
+    "billing": {
+      "city": "San Francisco",
+      "country": "US",
+      "state": "CA",
+      "street": "123 Market St",
+      "zipcode": "94103"
+    },
+    "status": "active",
+    "currency": "USD",
+    "quantity": 1,
+    "recurring_pre_tax_amount": 2000,
+    "payment_frequency_count": 1,
+    "payment_frequency_interval": "month",
+    "subscription_period_count": 1,
+    "subscription_period_interval": "month",
+    "next_billing_date": "2026-03-19T10:30:00Z",
+    "created_at": "2026-02-19T10:30:00Z",
+    "tax_inclusive": false,
+    "trial_period_days": 0,
+    "on_demand": false,
+    "metadata": {
+      "user_id": "65f7a8b9c1234567890abcde",
+      "plan_type": "pro"
+    },
+    "addons": []
+  }
+}
+```
+
+## Webhook Retry Logic
+
+### Dodo Payments
+
+- Retries failed webhooks with exponential backoff
+- Maximum 5 retry attempts
+- Webhooks expire after 72 hours
+
+### Composio
+
+- Automatic retries for 5xx errors
+- No retries for 4xx errors
+- 24-hour retry window
+
+## Response Requirements
+
+Webhook endpoints must:
+
+1. **Respond quickly** - Return `200 OK` within 30 seconds
+2. **Process asynchronously** - Queue heavy processing for background jobs
+3. **Handle idempotency** - Same webhook may be delivered multiple times
+
+```python
+from fastapi import BackgroundTasks
+
+@router.post("/webhook/dodo")
+async def handle_dodo_webhook(
+    event: DodoWebhookEvent,
+    background_tasks: BackgroundTasks
+):
+    # Queue processing
+    background_tasks.add_task(process_webhook, event)
+    
+    # Respond immediately
+    return {"status": "received"}
+
+async def process_webhook(event: DodoWebhookEvent):
+    # Heavy processing here
+    if event.type == "payment.succeeded":
+        await update_subscription_status(event.data)
+```
+
+## Testing Webhooks
+
+### Local Development
+
+Use ngrok or similar tools to expose localhost:
+
+```bash
+ngrok http 8000
+```
+
+Then configure webhook URL:
+```
+https://abc123.ngrok.io/api/v1/webhook/dodo
+```
+
+### Webhook Testing Tools
+
+- **Dodo Dashboard:** Send test webhook events
+- **Composio Dashboard:** Trigger test events
+- **Postman:** Manually craft webhook payloads
+
+## Monitoring Webhooks
+
+GAIA logs all webhook events for debugging:
+
+```python
+logger.info(f"Received Dodo webhook: {event.type}")
+logger.debug(f"Webhook payload: {event.model_dump_json()}")
+```
+
+Monitor webhook health in:
+- Application logs (CloudWatch, Datadog, etc.)
+- Dodo Payments dashboard
+- Composio dashboard
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Chat API" icon="comments" href="/api/chat">
+    Stream AI-powered conversations
+  </Card>
+  <Card title="Todos API" icon="check" href="/api/todos">
+    Manage tasks and projects
+  </Card>
+</CardGroup>

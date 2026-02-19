@@ -1,0 +1,160 @@
+---
+title: Developer Introduction
+description: Welcome to GAIA development - Learn about the architecture and tech stack
+---
+
+## Welcome Contributors
+
+Welcome to GAIA development! We're building a proactive personal AI assistant that goes beyond traditional assistants like Siri, Google Assistant, and ChatGPT. GAIA is designed to understand your entire digital life, remember everything, and quietly handle repetitive work for you - not just react to commands, but act proactively.
+
+We welcome contributions of all kinds, from bug fixes and new features to documentation and testing. AI and vibe-coded PRs are welcome - just mention it in your PR description!
+
+## What is GAIA?
+
+GAIA is your proactive, personal AI assistant designed to increase your productivity by:
+
+- **Acting proactively** on upcoming deadlines, important emails, and tasks
+- **Automating workflows** to eliminate repetitive tasks from email triage to document creation
+- **Managing todos** as mini-workflows where GAIA researches, drafts, and handles work automatically
+- **Unifying productivity** with all your tasks, emails, calendar, and goals in one dashboard
+- **Building memory** through a graph-based knowledge system that connects everything
+- **Integrating everywhere** with hundreds of integrations to connect your favorite tools
+
+## Architecture Overview
+
+GAIA is built as a full-stack monorepo using Nx. The system is organized into three main layers:
+
+### Frontend Applications
+
+- **Web App** (Next.js 16 + React 19) - Web-based interface with App Router and Server Components
+- **Desktop App** (Electron) - Native desktop application for macOS, Windows, and Linux
+- **Mobile App** (React Native + Expo) - Native mobile app for iOS and Android
+
+### Backend Services
+
+- **API** (FastAPI + LangGraph) - Python backend with AI agent orchestration
+- **Voice Agent** - Dedicated voice processing worker
+- **Bots** - Discord, Slack, and Telegram integrations
+
+### Infrastructure
+
+- **PostgreSQL** - Primary relational database
+- **MongoDB** - Document storage for flexible data
+- **Redis** - Caching and task queue (ARQ)
+- **ChromaDB** - Vector database for embeddings
+- **RabbitMQ** - Message broker for async communication
+
+## Tech Stack
+
+### Frontend Technologies
+
+<CardGroup cols={2}>
+  <Card title="Next.js 16" icon="react">
+    App Router with React Server Components and Turbopack for fast development
+  </Card>
+  <Card title="React 19" icon="atom">
+    Latest React features with concurrent rendering and automatic batching
+  </Card>
+  <Card title="TypeScript" icon="code">
+    Strict type checking for better developer experience and code quality
+  </Card>
+  <Card title="Zustand" icon="store">
+    Lightweight state management without boilerplate
+  </Card>
+  <Card title="TailwindCSS" icon="paintbrush">
+    Utility-first CSS framework for rapid UI development
+  </Card>
+  <Card title="Biome" icon="sparkles">
+    Fast linter and formatter that replaces ESLint + Prettier
+  </Card>
+</CardGroup>
+
+### Backend Technologies
+
+<CardGroup cols={2}>
+  <Card title="FastAPI" icon="bolt">
+    Modern Python web framework with automatic API documentation
+  </Card>
+  <Card title="LangGraph" icon="diagram-project">
+    Agent orchestration framework for building AI workflows
+  </Card>
+  <Card title="PostgreSQL" icon="database">
+    Primary relational database for structured data
+  </Card>
+  <Card title="MongoDB" icon="leaf">
+    Document storage for flexible, unstructured data
+  </Card>
+  <Card title="Redis" icon="fire">
+    In-memory data store for caching and task queues
+  </Card>
+  <Card title="ChromaDB" icon="vector-square">
+    Vector database for AI embeddings and semantic search
+  </Card>
+</CardGroup>
+
+### Development Tools
+
+- **Nx** - Monorepo management with smart caching and task orchestration
+- **pnpm** - Fast, disk space efficient package manager
+- **uv** - Ultra-fast Python package installer and resolver
+- **Docker** - Containerization for consistent development and deployment
+- **Biome** (Frontend) - All-in-one toolchain for linting and formatting
+- **Ruff** (Backend) - Extremely fast Python linter and formatter
+
+## Key Features for Developers
+
+### Monorepo Structure
+
+The project uses Nx to manage a monorepo containing all applications and shared libraries. This provides:
+
+- **Shared code** between applications through the `libs/shared` directory
+- **Incremental builds** with intelligent caching
+- **Parallel execution** of tasks across multiple projects
+- **Dependency graph** visualization to understand project relationships
+
+### Feature-Based Organization
+
+Code is organized by features, not by technical layers:
+
+```
+src/features/
+  chat/         - Chat interface and messaging
+  todo/         - Task management
+  calendar/     - Calendar and scheduling
+  workflows/    - Workflow automation
+  integrations/ - Third-party integrations
+```
+
+This makes it easy to find related code and maintain features independently.
+
+### Type Safety
+
+- **TypeScript** with strict mode enabled for frontend code
+- **Python type hints** enforced with mypy for backend code
+- **Pydantic** for runtime validation and serialization
+
+### Code Quality
+
+- **Biome** for consistent JavaScript/TypeScript formatting and linting
+- **Ruff** for fast Python linting and formatting
+- **No inline imports** - all imports must be at top of file
+- **No `any` types** in TypeScript - proper type definitions required
+- **Strict type hints** in Python for all function parameters and returns
+
+## Community & Support
+
+Join our growing community:
+
+- **Discord** - Chat with the team and other contributors at [discord.heygaia.io](https://discord.heygaia.io)
+- **Twitter** - Follow [@trygaia](https://twitter.com/trygaia) for updates
+- **GitHub** - Open issues and PRs at [github.com/theexperiencecompany/gaia](https://github.com/theexperiencecompany/gaia)
+
+## License
+
+<Warning>
+  GAIA is licensed under the Polyform Strict License 1.0.0, which allows noncommercial, personal, and research use only. Commercial use, distribution, and modifications are not permitted without explicit permission.
+</Warning>
+
+## Next Steps
+
+Ready to start developing? Continue to the [Development Setup](/developers/development-setup) guide to get your environment configured.

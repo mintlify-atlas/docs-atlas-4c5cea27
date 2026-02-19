@@ -1,0 +1,590 @@
+---
+title: "Mobile App (React Native)"
+description: "Build GAIA's cross-platform mobile app with React Native and Expo"
+---
+
+## Overview
+
+GAIA's mobile app is built with React Native and Expo, providing a native mobile experience on iOS and Android. The app shares state management patterns and API integrations with the web app.
+
+## Tech Stack
+
+<CardGroup cols={2}>
+  <Card title="React Native" icon="mobile">
+    Cross-platform native mobile framework
+  </Card>
+  <Card title="Expo 54" icon="rocket">
+    Managed workflow with native modules
+  </Card>
+  <Card title="Expo Router" icon="route">
+    File-based routing for React Native
+  </Card>
+  <Card title="Zustand" icon="database">
+    Shared state management with web
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+```bash
+apps/mobile/
+├── src/
+│   ├── app/              # Expo Router pages
+│   │   ├── (app)/        # Main app routes
+│   │   ├── login/        # Auth screens
+│   │   ├── signup/       # Signup flow
+│   │   └── _layout.tsx   # Root layout
+│   ├── features/         # Feature modules
+│   │   ├── auth/         # Authentication
+│   │   ├── chat/         # Chat interface
+│   │   ├── integrations/ # App integrations
+│   │   └── notifications/# Push notifications
+│   ├── components/       # Reusable components
+│   ├── hooks/            # Custom hooks
+│   ├── stores/           # Zustand stores
+│   ├── lib/              # Utilities
+│   └── shared/           # Shared types/constants
+├── assets/               # Images, fonts, etc.
+├── app.json              # Expo configuration
+├── tailwind.config.js    # TailwindCSS config
+└── package.json
+```
+
+## App Router (Expo Router)
+
+Expo Router provides file-based routing similar to Next.js:
+
+### Root Layout
+
+```typescript
+// src/app/_layout.tsx
+import { Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { HeroUINativeProvider } from 'heroui-native';
+
+import { AuthProvider } from '@/features/auth';
+import { ChatProvider } from '@/features/chat';
+import { QueryProvider } from '@/lib/query-provider';
+
+export default function RootLayout() {
+  return (
+    <QueryProvider>
+      <AuthProvider>
+        <ChatProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <HeroUINativeProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(app)" />
+                <Stack.Screen name="login/index" />
+                <Stack.Screen name="signup/index" />
+              </Stack>
+            </HeroUINativeProvider>
+          </GestureHandlerRootView>
+        </ChatProvider>
+      </AuthProvider>
+    </QueryProvider>
+  );
+}
+```
+
+### Navigation
+
+```typescript
+import { router } from 'expo-router';
+
+// Navigate to screen
+router.push('/chat');
+
+// Navigate with params
+router.push({
+  pathname: '/chat/[id]',
+  params: { id: '123' },
+});
+
+// Go back
+router.back();
+```
+
+## Native Features
+
+### Authentication
+
+<Tabs>
+  <Tab title="OAuth Flow">
+    ```typescript
+    // features/auth/hooks/useAuth.ts
+    import * as AuthSession from 'expo-auth-session';
+    import * as WebBrowser from 'expo-web-browser';
+    
+    WebBrowser.maybeCompleteAuthSession();
+    
+    export function useAuth() {
+      const [request, response, promptAsync] = AuthSession.useAuthRequest(
+        {
+          clientId: 'your-client-id',
+          redirectUri: AuthSession.makeRedirectUri(),
+          scopes: ['openid', 'profile', 'email'],
+        },
+        { authorizationEndpoint: 'https://auth.heygaia.io/authorize' }
+      );
+      
+      useEffect(() => {
+        if (response?.type === 'success') {
+          const { code } = response.params;
+          // Exchange code for token
+        }
+      }, [response]);
+      
+      return { signIn: promptAsync };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Secure Storage">
+    ```typescript
+    import * as SecureStore from 'expo-secure-store';
+    
+    // Store token securely
+    await SecureStore.setItemAsync('auth_token', token);
+    
+    // Retrieve token
+    const token = await SecureStore.getItemAsync('auth_token');
+    
+    // Delete token
+    await SecureStore.deleteItemAsync('auth_token');
+    ```
+  </Tab>
+</Tabs>
+
+### Push Notifications
+
+```typescript
+// features/notifications/hooks/useNotifications.ts
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export function useNotifications() {
+  const [expoPushToken, setExpoPushToken] = useState('');
+  
+  useEffect(() => {
+    registerForPushNotifications();
+  }, []);
+  
+  async function registerForPushNotifications() {
+    if (!Device.isDevice) {
+      console.log('Must use physical device for Push Notifications');
+      return;
+    }
+    
+    const { status: existingStatus } = 
+      await Notifications.getPermissionsAsync();
+    
+    let finalStatus = existingStatus;
+    
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token');
+      return;
+    }
+    
+    const token = await Notifications.getExpoPushTokenAsync({
+      projectId: 'your-project-id',
+    });
+    
+    setExpoPushToken(token.data);
+    
+    // Send token to backend
+    await api.registerPushToken(token.data);
+  }
+  
+  return { expoPushToken };
+}
+```
+
+### Haptic Feedback
+
+```typescript
+import * as Haptics from 'expo-haptics';
+
+function Button({ onPress }: { onPress: () => void }) {
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+  
+  return <Pressable onPress={handlePress}>...</Pressable>;
+}
+```
+
+## UI Components
+
+### HeroUI Native
+
+```typescript
+import { Button, Card } from 'heroui-native';
+
+export function ChatCard() {
+  return (
+    <Card>
+      <Card.Body>
+        <Text>Chat Message</Text>
+      </Card.Body>
+      <Card.Footer>
+        <Button>Reply</Button>
+      </Card.Footer>
+    </Card>
+  );
+}
+```
+
+### Styled Components with Uniwind
+
+```typescript
+import { View, Text } from 'react-native';
+import { useUniwind } from 'uniwind';
+
+export function ChatBubble({ message }: { message: string }) {
+  const u = useUniwind();
+  
+  return (
+    <View style={u('bg-blue-500 rounded-lg p-4 mb-2')}>
+      <Text style={u('text-white')}>{message}</Text>
+    </View>
+  );
+}
+```
+
+## State Management
+
+Mobile app uses Zustand, sharing patterns with the web app:
+
+```typescript
+// stores/chat-store.ts
+import { create } from 'zustand';
+import type { Message, Conversation } from '@/features/chat/types';
+
+interface ChatState {
+  messagesByConversation: Record<string, Message[]>;
+  conversations: Conversation[];
+  activeChatId: string | null;
+  
+  setActiveChatId: (id: string | null) => void;
+  setMessages: (conversationId: string, messages: Message[]) => void;
+  addConversation: (conversation: Conversation) => void;
+}
+
+export const useChatStore = create<ChatState>((set) => ({
+  messagesByConversation: {},
+  conversations: [],
+  activeChatId: null,
+  
+  setActiveChatId: (id) => set({ activeChatId: id }),
+  
+  setMessages: (conversationId, messages) =>
+    set((state) => ({
+      messagesByConversation: {
+        ...state.messagesByConversation,
+        [conversationId]: messages,
+      },
+    })),
+  
+  addConversation: (conversation) =>
+    set((state) => ({
+      conversations: [conversation, ...state.conversations],
+    })),
+}));
+```
+
+## Data Fetching
+
+Use TanStack Query for API calls:
+
+```typescript
+// features/chat/api/chat-api.ts
+import { useQuery, useMutation } from '@tanstack/react-query';
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: process.env.EXPO_PUBLIC_API_URL,
+});
+
+export function useMessages(conversationId: string) {
+  return useQuery({
+    queryKey: ['messages', conversationId],
+    queryFn: async () => {
+      const { data } = await api.get(`/chat/${conversationId}/messages`);
+      return data;
+    },
+  });
+}
+
+export function useSendMessage() {
+  return useMutation({
+    mutationFn: async ({ 
+      conversationId, 
+      content 
+    }: { 
+      conversationId: string; 
+      content: string; 
+    }) => {
+      const { data } = await api.post(
+        `/chat/${conversationId}/messages`,
+        { content }
+      );
+      return data;
+    },
+  });
+}
+```
+
+## Performance Optimization
+
+### FlashList for Large Lists
+
+```typescript
+import { FlashList } from '@shopify/flash-list';
+
+export function MessageList({ messages }: { messages: Message[] }) {
+  return (
+    <FlashList
+      data={messages}
+      renderItem={({ item }) => <MessageBubble message={item} />}
+      estimatedItemSize={80}
+      keyExtractor={(item) => item.id}
+    />
+  );
+}
+```
+
+### Image Optimization
+
+```typescript
+import { Image } from 'expo-image';
+
+export function Avatar({ uri }: { uri: string }) {
+  return (
+    <Image
+      source={{ uri }}
+      style={{ width: 40, height: 40, borderRadius: 20 }}
+      contentFit="cover"
+      transition={200}
+    />
+  );
+}
+```
+
+## Development Workflow
+
+### Running the App
+
+<Tabs>
+  <Tab title="Development Build">
+    ```bash
+    # Start Expo dev server
+    nx dev mobile
+    # or
+    pnpm start
+    
+    # Then scan QR code with Expo Go app
+    ```
+  </Tab>
+  
+  <Tab title="iOS Simulator">
+    ```bash
+    # Run on iOS simulator
+    nx ios mobile
+    # or
+    pnpm ios
+    ```
+  </Tab>
+  
+  <Tab title="Android Emulator">
+    ```bash
+    # Run on Android emulator
+    nx android mobile
+    # or
+    pnpm android
+    ```
+  </Tab>
+</Tabs>
+
+### Building for Production
+
+<Tabs>
+  <Tab title="EAS Build">
+    ```bash
+    # Install EAS CLI
+    npm install -g eas-cli
+    
+    # Login to Expo
+    eas login
+    
+    # Configure project
+    eas build:configure
+    
+    # Build for iOS
+    eas build --platform ios
+    
+    # Build for Android
+    eas build --platform android
+    ```
+  </Tab>
+  
+  <Tab title="Local Build">
+    ```bash
+    # iOS (requires Mac)
+    npx expo run:ios --configuration Release
+    
+    # Android
+    npx expo run:android --variant release
+    ```
+  </Tab>
+</Tabs>
+
+## App Configuration
+
+```json
+// app.json
+{
+  "expo": {
+    "name": "GAIA",
+    "slug": "gaia-mobile",
+    "version": "0.3.0",
+    "scheme": "gaia",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "io.heygaia.mobile",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "GAIA needs microphone access for voice features"
+      }
+    },
+    "android": {
+      "package": "io.heygaia.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#ffffff"
+        }
+      ]
+    ]
+  }
+}
+```
+
+## Environment Variables
+
+```bash
+# .env
+EXPO_PUBLIC_API_URL=https://api.heygaia.io
+EXPO_PUBLIC_WS_URL=wss://api.heygaia.io/ws
+```
+
+Access in code:
+
+```typescript
+const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+```
+
+## Debugging
+
+### React DevTools
+
+```bash
+# Install React DevTools
+npm install -g react-devtools
+
+# Start DevTools
+react-devtools
+```
+
+### Flipper
+
+```bash
+# Install Flipper
+brew install --cask flipper
+
+# Run app in dev mode
+nx dev mobile
+```
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Metro Bundler Issues">
+    Clear Metro cache:
+    
+    ```bash
+    npx expo start --clear
+    ```
+  </Accordion>
+  
+  <Accordion title="Native Module Not Found">
+    Rebuild the app:
+    
+    ```bash
+    # iOS
+    npx expo run:ios --clean
+    
+    # Android
+    npx expo run:android --clean
+    ```
+  </Accordion>
+  
+  <Accordion title="Simulator Not Launching">
+    Reset simulators:
+    
+    ```bash
+    # iOS
+    xcrun simctl erase all
+    
+    # Android
+    adb kill-server && adb start-server
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Web App" icon="browser" href="/developers/frontend/web-app">
+    Learn about the Next.js web application
+  </Card>
+  <Card title="State Management" icon="database" href="/developers/frontend/state-management">
+    Explore Zustand state patterns
+  </Card>
+  <Card title="Component Structure" icon="layer-group" href="/developers/frontend/component-structure">
+    Understand component organization
+  </Card>
+  <Card title="API Integration" icon="plug" href="/developers/api/overview">
+    Connect to the backend API
+  </Card>
+</CardGroup>

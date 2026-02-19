@@ -1,0 +1,186 @@
+---
+title: 'API Introduction'
+description: 'Get started with the GAIA API - a powerful AI assistant platform'
+---
+
+# Introduction to GAIA API
+
+Welcome to the GAIA API documentation. GAIA is a proactive personal AI assistant that helps you manage tasks, emails, calendar events, workflows, and more through intelligent automation.
+
+## Base URL
+
+All API requests should be made to:
+
+```
+https://api.heygaia.io/api/v1
+```
+
+## API Versioning
+
+The GAIA API uses URL-based versioning. The current version is `v1`, which is included in the base URL path.
+
+**Version Format:** `/api/v{version_number}`
+
+- Current version: `v1`
+- Base path: `/api/v1`
+
+## Quick Start
+
+### 1. Authentication
+
+All API requests require authentication via WorkOS session tokens. Include your session token in the `Cookie` header:
+
+```bash
+curl https://api.heygaia.io/api/v1/todos \
+  -H "Cookie: wos_session=YOUR_SESSION_TOKEN"
+```
+
+### 2. Make Your First Request
+
+List your todos:
+
+```bash
+curl https://api.heygaia.io/api/v1/todos \
+  -H "Cookie: wos_session=YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+### 3. Create a Resource
+
+Create a new todo:
+
+```bash
+curl -X POST https://api.heygaia.io/api/v1/todos \
+  -H "Cookie: wos_session=YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Complete API integration",
+    "description": "Integrate GAIA API into our application",
+    "priority": "high",
+    "due_date": "2026-02-25T18:00:00Z"
+  }'
+```
+
+## Response Format
+
+All responses are returned in JSON format with appropriate HTTP status codes:
+
+- `200 OK` - Successful GET, PUT, PATCH requests
+- `201 Created` - Successful POST request creating a resource
+- `204 No Content` - Successful DELETE request
+- `400 Bad Request` - Invalid request parameters
+- `401 Unauthorized` - Missing or invalid authentication
+- `403 Forbidden` - Authenticated but not authorized
+- `404 Not Found` - Resource not found
+- `429 Too Many Requests` - Rate limit exceeded
+- `500 Internal Server Error` - Server error
+
+### Success Response Example
+
+```json
+{
+  "id": "65f7a8b9c1234567890abcde",
+  "title": "Complete API integration",
+  "description": "Integrate GAIA API into our application",
+  "priority": "high",
+  "completed": false,
+  "created_at": "2026-02-19T10:00:00Z",
+  "updated_at": "2026-02-19T10:00:00Z"
+}
+```
+
+### Error Response Example
+
+```json
+{
+  "detail": "Invalid request: title is required"
+}
+```
+
+## Request Headers
+
+### Required Headers
+
+- `Cookie: wos_session=YOUR_SESSION_TOKEN` - Authentication token
+- `Content-Type: application/json` - For POST, PUT, PATCH requests
+
+### Optional Headers
+
+- `x-timezone` - User's timezone (defaults to UTC)
+  ```
+  x-timezone: America/New_York
+  ```
+
+## Pagination
+
+List endpoints support pagination using query parameters:
+
+<ParamField query="page" type="integer" default="1">
+  Page number (1-based)
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="50">
+  Items per page (max: 100)
+</ParamField>
+
+### Pagination Response
+
+```json
+{
+  "data": [...],
+  "meta": {
+    "total": 150,
+    "page": 1,
+    "per_page": 50,
+    "pages": 3,
+    "has_next": true,
+    "has_prev": false
+  }
+}
+```
+
+## Timestamps
+
+All timestamps are returned in ISO 8601 format with UTC timezone:
+
+```
+2026-02-19T10:00:00Z
+```
+
+When sending timestamps, use ISO 8601 format. The API accepts both UTC and timezone-aware timestamps.
+
+## Feature Overview
+
+The GAIA API provides endpoints for:
+
+- **Chat** - Stream chat messages with AI assistance
+- **Todos** - Manage tasks with projects, subtasks, and priorities
+- **Calendar** - Create and manage calendar events
+- **Email** - Send, search, and manage Gmail messages
+- **Workflows** - Automate tasks with AI-generated workflows
+- **Goals** - Track goals with AI-generated roadmaps
+- **Memory** - Store and retrieve contextual memories
+- **Integrations** - Connect third-party services
+
+## Support & Resources
+
+- **Documentation:** https://docs.heygaia.io
+- **Status Page:** https://status.heygaia.io
+- **GitHub:** https://github.com/anomalyco/gaia
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate your requests
+  </Card>
+  <Card title="Rate Limits" icon="gauge" href="/api/rate-limits">
+    Understand API rate limits and quotas
+  </Card>
+  <Card title="Chat API" icon="comments" href="/api/chat">
+    Stream AI-powered conversations
+  </Card>
+  <Card title="Todos API" icon="check" href="/api/todos">
+    Manage tasks and projects
+  </Card>
+</CardGroup>

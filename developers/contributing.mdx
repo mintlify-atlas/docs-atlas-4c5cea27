@@ -1,0 +1,397 @@
+---
+title: Contributing to GAIA
+description: Guide to contributing code, documentation, and improvements to the GAIA project
+---
+
+GAIA is an open source project, and we welcome contributions of all kinds. This guide will help you get started with contributing.
+
+## Ways to Contribute
+
+<CardGroup cols={2}>
+  <Card title="Code" icon="code">
+    Bug fixes, new features, performance improvements, and refactoring
+  </Card>
+  <Card title="Documentation" icon="book">
+    Improve guides, add examples, fix typos, and translate content
+  </Card>
+  <Card title="Testing" icon="flask">
+    Write tests, improve coverage, and report bugs
+  </Card>
+  <Card title="Design" icon="paintbrush">
+    UI/UX improvements, design assets, and accessibility enhancements
+  </Card>
+</CardGroup>
+
+## Getting Started
+
+<Steps>
+  <Step title="Read the Code of Conduct">
+    Review our [Code of Conduct](https://github.com/theexperiencecompany/gaia/blob/master/CODE_OF_CONDUCT.md) to understand our community standards.
+  </Step>
+
+  <Step title="Set Up Development Environment">
+    Follow the [Development Setup Guide](/developers/development-setup) to configure your local environment.
+  </Step>
+
+  <Step title="Find an Issue">
+    Browse [GitHub Issues](https://github.com/theexperiencecompany/gaia/issues) for tasks labeled `good first issue` or `help wanted`.
+  </Step>
+
+  <Step title="Fork and Clone">
+    Fork the repository and clone it to your machine.
+  </Step>
+</Steps>
+
+## Contribution Workflow
+
+### 1. Create a Branch
+
+Create a feature branch from `master`:
+
+```bash
+git checkout -b feat/my-new-feature
+```
+
+Use conventional branch naming:
+- `feat/` - New features
+- `fix/` - Bug fixes
+- `docs/` - Documentation changes
+- `refactor/` - Code refactoring
+- `test/` - Adding tests
+- `chore/` - Maintenance tasks
+
+### 2. Make Changes
+
+Write your code following our [Code Style Guidelines](/developers/code-style):
+
+```bash
+# Make your changes
+vim apps/api/app/agents/tools/my_tool.py
+
+# Test locally
+cd apps/api
+uv run pytest tests/test_my_tool.py
+
+# Lint and format
+nx lint api
+nx format api
+```
+
+### 3. Commit Your Changes
+
+Follow [Conventional Commits](/developers/conventional-commits) format:
+
+```bash
+git add .
+git commit -m "feat(agents): add weather forecast tool
+
+- Add 5-day forecast support
+- Include precipitation probability
+- Add temperature range display
+
+Closes #123"
+```
+
+### 4. Push and Create PR
+
+Push your branch and create a pull request:
+
+```bash
+git push origin feat/my-new-feature
+```
+
+Then open a PR on GitHub following our [PR Guidelines](/developers/pull-requests).
+
+## Development Guidelines
+
+### Testing Requirements
+
+<Warning>
+All PRs must include tests for new functionality.
+</Warning>
+
+```bash
+# Run all tests
+nx run-many -t test
+
+# Run specific project tests
+cd apps/api && uv run pytest
+
+# Check coverage
+uv run pytest --cov=app --cov-report=html
+```
+
+### Code Quality
+
+Ensure code passes all checks:
+
+```bash
+# Lint
+nx run-many -t lint
+
+# Format
+nx run-many -t format
+
+# Type check
+nx run-many -t type-check
+
+# Build
+nx run-many -t build
+```
+
+### Pre-commit Hooks
+
+Install pre-commit hooks to catch issues early:
+
+```bash
+# Install hooks
+pre-commit install
+
+# Run manually
+pre-commit run --all-files
+```
+
+Configured hooks (`.pre-commit-config.yaml`):
+- Check YAML, JSON, TOML syntax
+- Detect merge conflicts
+- Check for large files
+- Validate Python AST
+- Detect private keys and secrets
+
+## Coding Standards
+
+### Python (Backend)
+
+<Accordion title="Python Standards">
+  - **Linting**: Ruff (configured in `pyproject.toml`)
+  - **Formatting**: Ruff format
+  - **Type Checking**: mypy with strict mode
+  - **Style**: PEP 8
+  - **Imports**: At top of file, no inline imports
+  - **Type Hints**: Required for all function parameters and return values
+  - **Docstrings**: Google style for classes and public functions
+
+  ```python
+  # Good
+  async def create_todo(
+      user_id: str,
+      title: str,
+      due_date: Optional[datetime] = None,
+  ) -> dict[str, Any]:
+      """Create a new todo item.
+
+      Args:
+          user_id: The user's unique identifier
+          title: Todo title
+          due_date: Optional due date
+
+      Returns:
+          Dictionary with todo data and success status
+      """
+      pass
+
+  # Bad
+  def create_todo(user_id, title, due_date=None):  # No types
+      pass
+  ```
+</Accordion>
+
+### TypeScript/JavaScript (Frontend)
+
+<Accordion title="TypeScript Standards">
+  - **Linting**: Biome (configured in `biome.json`)
+  - **Formatting**: Biome format
+  - **Line Width**: 80 characters
+  - **Indentation**: 2 spaces
+  - **Imports**: At top of file, no inline imports
+  - **Type Safety**: Never use `any` type
+  - **File Organization**: Feature-based structure
+
+  ```typescript
+  // Good
+  interface TodoItem {
+    id: string;
+    title: string;
+    completed: boolean;
+    dueDate?: Date;
+  }
+
+  async function createTodo(
+    title: string,
+    dueDate?: Date,
+  ): Promise<TodoItem> {
+    // Implementation
+  }
+
+  // Bad
+  async function createTodo(title: any, dueDate: any): any {  // Never use 'any'
+    // Implementation
+  }
+  ```
+</Accordion>
+
+### General Principles
+
+- **No unnecessarily verbose comments** - Code should be self-documenting
+- **Feature-based organization** - Group related files by feature, not type
+- **Absolute imports** - Use path aliases (`@/` for frontend)
+- **Single responsibility** - Keep functions and components focused
+- **Error handling** - Always handle errors gracefully
+
+## Documentation
+
+Update documentation for:
+
+- New features and APIs
+- Configuration changes
+- Breaking changes
+- Migration guides
+
+```bash
+# Preview docs locally
+nx dev docs
+```
+
+## Pull Request Checklist
+
+Before submitting:
+
+- [ ] Code follows style guidelines
+- [ ] Tests pass locally
+- [ ] New tests added for new functionality
+- [ ] Documentation updated
+- [ ] Commit messages follow conventional format
+- [ ] PR title follows conventional format
+- [ ] No merge conflicts with `master`
+- [ ] Changes are focused and atomic
+
+## Review Process
+
+<Steps>
+  <Step title="Automated Checks">
+    CI runs tests, linting, and type checking automatically.
+  </Step>
+
+  <Step title="Code Review">
+    Maintainers review your code and provide feedback.
+  </Step>
+
+  <Step title="Address Feedback">
+    Make requested changes and push updates.
+  </Step>
+
+  <Step title="Approval and Merge">
+    Once approved, maintainers will merge your PR.
+  </Step>
+</Steps>
+
+### Review Expectations
+
+- **Response time**: We aim to review PRs within 2-3 business days
+- **Feedback**: Constructive and specific
+- **Iteration**: Multiple rounds may be needed
+- **Communication**: Ask questions if feedback is unclear
+
+## Commit Message Guidelines
+
+Follow [Conventional Commits](/developers/conventional-commits) format.
+
+### Examples
+
+```bash
+# Feature
+feat(agents): add weather forecast tool
+
+# Bug fix
+fix(api): resolve todo creation race condition
+
+# Documentation
+docs: update agent development guide
+
+# Refactoring
+refactor(tools): simplify tool registry logic
+
+# Performance
+perf(api): optimize database queries
+
+# Breaking change
+feat(api)!: change authentication flow
+
+BREAKING CHANGE: Auth tokens now expire after 1 hour
+```
+
+## PR Description Template
+
+Use this template for pull requests:
+
+```markdown
+## Description
+Brief description of changes
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Changes Made
+- Change 1
+- Change 2
+- Change 3
+
+## Testing
+How to test these changes
+
+## Screenshots (if applicable)
+![Description](url)
+
+## Checklist
+- [ ] Tests pass
+- [ ] Documentation updated
+- [ ] No breaking changes (or documented)
+
+## Related Issues
+Closes #123
+References #456
+```
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="Discord Community" icon="discord" href="https://discord.heygaia.io/">
+    Ask questions and get real-time help
+  </Card>
+  <Card title="GitHub Discussions" icon="github" href="https://github.com/theexperiencecompany/gaia/discussions">
+    Start conversations about features and ideas
+  </Card>
+  <Card title="Documentation" icon="book" href="/">
+    Browse comprehensive guides and references
+  </Card>
+  <Card title="GitHub Issues" icon="bug" href="https://github.com/theexperiencecompany/gaia/issues">
+    Report bugs and request features
+  </Card>
+</CardGroup>
+
+## Recognition
+
+Contributors are recognized in:
+
+- README contributors section
+- Release notes
+- Community spotlights
+
+Thank you for contributing to GAIA!
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Code Style" icon="paintbrush" href="/developers/code-style">
+    Detailed code style guidelines
+  </Card>
+  <Card title="Pull Requests" icon="code-pull-request" href="/developers/pull-requests">
+    PR process and requirements
+  </Card>
+  <Card title="Conventional Commits" icon="git-alt" href="/developers/conventional-commits">
+    Commit message format
+  </Card>
+</CardGroup>

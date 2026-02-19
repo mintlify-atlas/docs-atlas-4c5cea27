@@ -1,0 +1,364 @@
+---
+title: Email Tool
+description: Gmail integration for email management in GAIA
+---
+
+# Email Tool
+
+GAIA integrates with Gmail through **Composio** for comprehensive email management capabilities.
+
+## Overview
+
+The email tool is provided by the **Gmail Subagent**, which has specialized expertise in:
+
+- Email search and retrieval
+- Inbox management
+- Drafting and sending emails
+- Email filtering and labeling
+- Thread management
+- Attachment handling
+
+## Architecture
+
+Email operations are handled by delegating to the Gmail subagent:
+
+```python
+# Location: apps/api/app/agents/core/subagents/provider_subagents.py
+@lazy_provider(name="gmail_subagent", auto_initialize=False)
+async def build_gmail_subagent():
+    """Build Gmail specialized subagent."""
+    llm = init_llm()
+    return await SubAgentFactory.create_provider_subagent(
+        provider="gmail",
+        name="gmail_subagent",
+        llm=llm,
+        tool_space="gmail_delegated",
+    )
+```
+
+## Subagent Expertise
+
+The Gmail subagent uses a specialized system prompt:
+
+```python
+# Location: apps/api/app/agents/prompts/subagent_prompts.py:81
+GMAIL_AGENT_SYSTEM_PROMPT = BASE_SUBAGENT_PROMPT.format(
+    provider_name="Gmail",
+    domain_expertise="email operations, inbox management, and communication productivity",
+    provider_specific_content="""
+— DOMAIN ASSUMPTIONS
+You operate in a system where:
+- sender names
+- email addresses
+- subjects
+- thread IDs
+- message IDs
+- draft IDs
+- labels
+
+may be approximate, incomplete, or remembered imperfectly by the user.
+
+User descriptions represent intent, not exact identifiers.
+
+— SEARCH PERSISTENCE (CRITICAL)
+When asked to find, read, or reference an email:
+1. Try search with the user's description
+2. If no results, try broader search terms
+3. If still no results, search by sender
+4. If still no results, ask for clarification
+
+Never stop after a single failed search.
+
+— EMAIL AMBIGUITY
+When user says "the email from John":
+- Search for emails from addresses containing "john"
+- If multiple results, show options
+- If zero results, try alternate spellings
+
+— DRAFT WORKFLOW
+When composing emails:
+1. Create draft
+2. Show preview to user
+3. Wait for confirmation before sending
+4. Only send if explicitly requested
+"""
+)
+```
+
+## Delegation Pattern
+
+Email tasks are delegated via the `handoff` tool:
+
+```python
+# User request: "Find my email from John about the project"
+
+# Executor agent delegates to Gmail subagent
+result = await handoff(
+    provider="gmail",
+    task="Find email from John about the project",
+    config=config
+)
+```
+
+## Available Operations
+
+Through Composio, the Gmail subagent can:
+
+### Email Search
+
+- Search by sender, subject, content
+- Filter by date range
+- Search within specific labels
+- Full-text search across email body
+
+### Email Reading
+
+- Fetch email by ID
+- Get email thread
+- Download attachments
+- Parse HTML/plain text content
+
+### Email Composition
+
+- Create draft emails
+- Send emails
+- Reply to emails
+- Forward emails
+- Add CC/BCC recipients
+- Attach files
+
+### Email Organization
+
+- Apply labels
+- Archive emails
+- Mark as read/unread
+- Star/unstar messages
+- Move to trash
+- Mark as spam
+
+### Label Management
+
+- List all labels
+- Create custom labels
+- Apply labels to emails
+- Remove labels
+
+## Memory Integration
+
+The Gmail subagent stores procedural memories:
+
+```python
+# Location: apps/api/app/agents/core/nodes/memory_learning_node.py
+async def memory_learning_node(state: State) -> dict:
+    """
+    Gmail subagent learns email patterns:
+    - Common senders and their typical subjects
+    - User's email organization preferences
+    - Successful search strategies
+    """
+    agent_name = config.get("configurable", {}).get("agent_name")
+    
+    # Extract learning from conversation
+    skill_memory = await extract_procedural_knowledge(
+        messages=state.messages,
+        agent_name="gmail_subagent",
+    )
+    
+    # Store in agent-specific namespace
+    await memory_service.store_memory(
+        message=skill_memory,
+        user_id=f"agent:gmail_subagent",
+        metadata={"type": "skill"},
+    )
+    
+    return {}
+```
+
+## Error Handling
+
+The Gmail subagent is designed to persist through failures:
+
+```python
+# Execution mandate from system prompt:
+# "You MUST attempt to complete every delegated task"
+# "Tool errors, missing data, or incorrect assumptions are problems to solve"
+
+# Example workflow:
+# 1. Search fails -> Try broader terms
+# 2. Ambiguous sender -> Search multiple name variations
+# 3. No results -> Ask user for clarification
+# 4. API error -> Retry with exponential backoff
+```
+
+## OAuth Flow
+
+Gmail requires OAuth authentication via Composio:
+
+1. **Integration Check**:
+```python
+from app.services.oauth.oauth_service import check_integration_status
+
+is_connected = await check_integration_status("gmail", user_id)
+```
+
+2. **Initiate Connection** (if not connected):
+```python
+# Agent detects Gmail is not connected
+writer({
+    "integration_connection_required": {
+        "integration_id": "gmail",
+        "message": "To read emails, please connect your Gmail account."
+    }
+})
+```
+
+3. **Frontend OAuth Flow**:
+- User clicks "Connect Gmail"
+- Redirected to Google OAuth consent screen
+- Grants permissions
+- Redirected back with auth code
+- Backend exchanges code for access token
+
+4. **Token Storage**:
+- Access token stored securely in database
+- Refresh token used for token renewal
+- Composio manages token lifecycle
+
+## Usage Examples
+
+### Finding an Email
+
+```python
+# User: "Find my email from Sarah about the budget"
+
+# Gmail subagent workflow:
+# 1. Search for emails from addresses containing "sarah"
+# 2. Filter results by content containing "budget"
+# 3. If multiple results, show top 3 with previews
+# 4. If no results, try broader search (just "sarah")
+# 5. If still no results, search all emails for "budget"
+# 6. Return results or ask for clarification
+```
+
+### Composing an Email
+
+```python
+# User: "Email John to schedule a meeting next week"
+
+# Gmail subagent workflow:
+# 1. Search user's contacts for "John"
+# 2. If multiple Johns found, ask which one
+# 3. Create draft email:
+#    To: john@example.com
+#    Subject: Meeting Request
+#    Body: <AI-generated meeting request>
+# 4. Show draft to user for confirmation
+# 5. User reviews and approves
+# 6. Send email
+```
+
+### Email Organization
+
+```python
+# User: "Archive all emails from newsletters"
+
+# Gmail subagent workflow:
+# 1. Search for emails with newsletter indicators
+# 2. Apply "Archive" action in batches
+# 3. Report: "Archived 47 newsletter emails"
+# 4. Optionally create filter for future auto-archiving
+```
+
+## Best Practices
+
+### 1. Always Show Drafts Before Sending
+
+```python
+# Good: Show draft for confirmation
+draft = create_email_draft(...)
+show_to_user(draft)
+wait_for_confirmation()
+send_email(draft)
+
+# Avoid: Sending without confirmation
+send_email(...)  # Risky!
+```
+
+### 2. Persist Through Ambiguity
+
+```python
+# Good: Try multiple search strategies
+results = search_by_sender("john")
+if not results:
+    results = search_by_sender("jonathan")
+if not results:
+    results = search_content("john")
+if not results:
+    ask_user_for_clarification()
+
+# Avoid: Give up after first failure
+results = search_by_sender("john")
+if not results:
+    return "Email not found"  # Too early to give up
+```
+
+### 3. Use Batch Operations
+
+```python
+# Good: Batch operations for multiple emails
+emails = search_emails(query)
+batch_archive(emails)
+
+# Avoid: Individual operations in loop
+for email in emails:
+    archive_email(email)  # Slower, more API calls
+```
+
+<Note>
+The Gmail subagent has access to `search_memory` tool to retrieve user-specific email patterns and preferences, making email management more personalized over time.
+</Note>
+
+## Common Patterns
+
+### Email Retrieval with Fallback
+
+```python
+# Pattern: Progressive search refinement
+1. Try exact search with all criteria
+2. Remove least important criterion and retry
+3. Search by sender only
+4. Search by subject only
+5. Ask user for more details
+```
+
+### Thread Management
+
+```python
+# Pattern: Work with email threads
+1. Find the original email
+2. Get the entire thread
+3. Identify latest message
+4. Draft reply in context of thread
+```
+
+## Integration with Other Tools
+
+Gmail subagent can coordinate with other agents:
+
+```python
+# Example: Email reminder integration
+# User: "Email me about the client meeting tomorrow"
+
+# Executor coordinates:
+# 1. Gmail subagent: Create draft email
+# 2. Calendar tool: Find meeting details
+# 3. Gmail subagent: Enhance draft with meeting details
+# 4. Todo tool: Create reminder to send email
+```
+
+## Next Steps
+
+- [Todo Tool](/agents/tools/todo) - Task management integration
+- [Calendar Tool](/agents/tools/calendar) - Event scheduling
+- [Memory Tool](/agents/tools/memory) - Personal memory storage
+- [Integration Tool](/agents/tools/integrations) - OAuth management

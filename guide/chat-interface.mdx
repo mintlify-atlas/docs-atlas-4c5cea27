@@ -1,0 +1,192 @@
+---
+title: "Chat Interface"
+description: "Learn how to interact with GAIA through natural conversations and get AI-powered assistance"
+---
+
+## Overview
+
+GAIA's chat interface is your primary way to interact with the AI assistant. Through natural language conversations, you can get help with tasks, ask questions, and control your calendar, emails, todos, and workflows.
+
+## Starting a conversation
+
+<Steps>
+  <Step title="Access the chat">
+    Navigate to the chat page by clicking the **Chat** icon in the sidebar or visiting `/chat` in your browser.
+  </Step>
+  
+  <Step title="Start typing">
+    Click on the message input area at the bottom of the screen and type your message. You can ask questions, request actions, or have natural conversations.
+  </Step>
+  
+  <Step title="Send your message">
+    Press **Enter** to send your message, or click the send button. GAIA will process your request and respond in real-time.
+  </Step>
+</Steps>
+
+## Chat features
+
+### Message types
+
+GAIA supports various types of interactions:
+
+- **Questions**: Ask about your schedule, tasks, or general information
+- **Commands**: Request actions like "Schedule a meeting tomorrow at 2pm"
+- **File uploads**: Share documents, images, or files for analysis
+- **Image generation**: Ask GAIA to create images with natural language prompts
+
+### File attachments
+
+You can upload files to enhance your conversations:
+
+<Steps>
+  <Step title="Click the attachment button">
+    Look for the file upload icon in the message input area.
+  </Step>
+  
+  <Step title="Select your file">
+    Choose a file from your device. Supported formats include documents, images, and other common file types.
+  </Step>
+  
+  <Step title="Add context">
+    Type a message explaining what you want GAIA to do with the file, then send.
+  </Step>
+</Steps>
+
+<Tip>
+  GAIA can analyze documents, extract information from images, and process various file formats to help you with your tasks.
+</Tip>
+
+### Tool integration
+
+When you make requests, GAIA automatically uses the appropriate tools:
+
+- **Calendar tools**: For scheduling and event management
+- **Email tools**: For composing and managing emails
+- **Todo tools**: For task creation and tracking
+- **Workflow tools**: For automating repetitive tasks
+
+You can also explicitly select a tool before sending your message by clicking the tool selector.
+
+### Image generation
+
+Create custom images with AI:
+
+1. Type a description of the image you want
+2. Make sure the image generation tool is selected or simply ask "Generate an image of..."
+3. GAIA will create and display the image in the chat
+
+<Note>
+  The AI may improve your prompt automatically to generate better results. The improved prompt will be shown in the response.
+</Note>
+
+## Managing conversations
+
+### Conversation history
+
+All your conversations are automatically saved. You can:
+
+- View recent conversations from the **Recent Conversations** section
+- Click any conversation to continue where you left off
+- Search through past conversations to find information
+
+### Conversation actions
+
+<AccordionGroup>
+  <Accordion title="Star important conversations">
+    Click the star icon on any conversation to mark it as important. Starred conversations appear at the top of your list for easy access.
+  </Accordion>
+  
+  <Accordion title="Rename conversations">
+    Right-click a conversation and select **Rename** to give it a descriptive title. By default, conversations are named based on their content.
+  </Accordion>
+  
+  <Accordion title="Delete conversations">
+    Right-click a conversation and select **Delete** to remove it permanently. You can also delete all conversations at once from the settings menu.
+  </Accordion>
+  
+  <Accordion title="Mark as read/unread">
+    Keep track of conversations by marking them as read or unread. Unread conversations are highlighted for easy identification.
+  </Accordion>
+</AccordionGroup>
+
+### Pin messages
+
+Pin important messages within a conversation:
+
+1. Hover over the message you want to pin
+2. Click the pin icon that appears
+3. Pinned messages are highlighted and easy to reference later
+
+To unpin, simply click the pin icon again.
+
+## Advanced features
+
+### Replying to specific messages
+
+Create context-aware responses:
+
+- Hover over any message in the conversation
+- Click the **Reply** button
+- Your response will reference the specific message, helping GAIA understand the context
+
+### Context from calendar and todos
+
+You can attach context to your messages:
+
+- **Select a calendar event**: GAIA will use the event details in its response
+- **Reference a todo**: Link your message to a specific task for better context
+- **Use workflows**: Execute pre-defined workflows directly from chat
+
+### Streaming responses
+
+GAIA responds in real-time using streaming technology. You'll see the response appear word-by-word as it's generated, allowing you to:
+
+- Start reading before the full response is complete
+- Stop generation if you've got the answer you need
+- See GAIA's thought process as it works
+
+<Note>
+  The chat uses server-sent events (SSE) to stream responses efficiently from `apps/web/src/features/chat/api/chatApi.ts:244`.
+</Note>
+
+## System-generated conversations
+
+Some conversations are created automatically by GAIA:
+
+- **Email processing**: When GAIA processes your emails
+- **Workflow execution**: Results from automated workflows
+- **Scheduled tasks**: Updates from timed operations
+
+These appear with a special indicator and help you track GAIA's autonomous actions.
+
+## Tips for effective conversations
+
+<CardGroup cols={2}>
+  <Card title="Be specific" icon="bullseye">
+    Provide clear details about what you want. Instead of "Schedule a meeting," try "Schedule a meeting with the team tomorrow at 2pm for 1 hour."
+  </Card>
+  
+  <Card title="Use natural language" icon="comments">
+    GAIA understands conversational language. You don't need to use special commands or syntax.
+  </Card>
+  
+  <Card title="Provide context" icon="circle-info">
+    If asking about specific items, include relevant details like dates, names, or project information.
+  </Card>
+  
+  <Card title="Review responses" icon="eye">
+    Check GAIA's responses, especially for important actions like sending emails or deleting items.
+  </Card>
+</CardGroup>
+
+## Keyboard shortcuts
+
+- **Enter**: Send message
+- **Shift + Enter**: New line in message
+- **Esc**: Close modals or cancel actions
+
+## Next steps
+
+<Card title="Todo Management" icon="list-check" href="/guide/todo-management">
+  Learn how to manage tasks and projects with GAIA.
+</Card>

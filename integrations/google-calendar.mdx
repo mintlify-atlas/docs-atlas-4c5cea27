@@ -1,0 +1,294 @@
+---
+title: Google Calendar Integration
+description: Schedule meetings and manage your calendar events with AI assistance
+---
+
+The Google Calendar integration enables GAIA to create, read, update, and manage calendar events. Let AI handle your scheduling with natural language commands.
+
+## Features
+
+- **Event Management**: Create, update, and delete calendar events
+- **Smart Scheduling**: Find available time slots automatically
+- **Multiple Calendars**: Work with multiple Google Calendars
+- **Attendee Management**: Add/remove attendees and send invitations
+- **Recurring Events**: Set up recurring meetings and patterns
+- **Free/Busy Queries**: Check availability across calendars
+- **Meeting Summaries**: Get daily schedule summaries
+
+## Setup
+
+<Steps>
+  <Step title="Navigate to Integrations">
+    Go to **Settings > Integrations** in GAIA
+  </Step>
+  <Step title="Find Google Calendar">
+    Search for "Google Calendar" in the Productivity category
+  </Step>
+  <Step title="Connect Account">
+    Click **Connect** to start OAuth authentication
+  </Step>
+  <Step title="Grant Permissions">
+    Sign in with your Google account and authorize calendar access
+  </Step>
+  <Step title="Verify Connection">
+    GAIA will confirm successful connection and show your calendars
+  </Step>
+</Steps>
+
+<Warning>
+  Google Calendar requires both read and write permissions to create and modify events.
+</Warning>
+
+## OAuth Configuration
+
+The Google Calendar integration requires these OAuth scopes:
+
+- `https://www.googleapis.com/auth/calendar.events` - Create and manage calendar events
+- `https://www.googleapis.com/auth/calendar.readonly` - View calendar events
+
+### Provider Details
+
+- **Provider**: Composio
+- **Toolkit**: GOOGLECALENDAR
+- **Auth Type**: OAuth 2.0
+- **Featured**: Yes
+
+## Usage Examples
+
+### Creating Events
+
+```
+You: Schedule a team meeting tomorrow at 2pm for 1 hour
+
+GAIA: I'll create that event for you.
+
+✓ Created event: "Team Meeting"
+  Time: Tomorrow, 2:00 PM - 3:00 PM
+  Calendar: Primary
+```
+
+### Finding Free Time
+
+```
+You: When am I free for a 30-minute meeting this week?
+
+GAIA: Here are your available slots this week:
+- Tomorrow: 10:00 AM - 12:00 PM, 2:30 PM - 5:00 PM
+- Thursday: 9:00 AM - 11:00 AM, 3:00 PM - 6:00 PM
+- Friday: 10:00 AM - 4:00 PM
+```
+
+### Managing Attendees
+
+```
+You: Add john@example.com and sarah@example.com to my 2pm meeting
+
+GAIA: Added 2 attendees to "Team Meeting" and sent invitations.
+
+✓ john@example.com - Invitation sent
+✓ sarah@example.com - Invitation sent
+```
+
+### Daily Summary
+
+```
+You: What's on my calendar today?
+
+GAIA: Here's your schedule for today:
+
+9:00 AM - 10:00 AM: Standup Meeting
+11:00 AM - 12:00 PM: Client Call with Acme Corp
+2:00 PM - 3:00 PM: Team Meeting (3 attendees)
+4:00 PM - 5:00 PM: Project Review
+
+You have 4 events scheduled with 1 hour of free time.
+```
+
+### Recurring Events
+
+```
+You: Create a weekly standup every Monday at 9am
+
+GAIA: Creating recurring event...
+
+✓ Created: "Weekly Standup"
+  Schedule: Every Monday at 9:00 AM
+  Recurring: Until you cancel
+```
+
+## Available Actions
+
+The Google Calendar agent can perform:
+
+- Create calendar events
+- Find free time slots
+- Query free/busy status
+- Move events between calendars
+- Add/remove attendees
+- List and search events
+- Get day summaries
+- Update event details
+- Delete events
+- Manage recurring events
+- Handle multiple calendars
+
+## Workflows & Triggers
+
+Google Calendar supports powerful automation triggers:
+
+### Event Created Trigger
+
+**Trigger**: When a new calendar event is created
+
+**Auto-Activated**: Yes
+
+**Configuration**:
+```yaml
+trigger: calendar_event_created
+config:
+  calendar_id: primary  # or specific calendar ID
+```
+
+**Use Cases**:
+- Send Slack notifications for new meetings
+- Create preparation tasks in Linear
+- Log events to a database
+- Sync with other calendars
+
+### Event Starting Soon Trigger
+
+**Trigger**: When a calendar event is about to start
+
+**Auto-Activated**: No (opt-in)
+
+**Configuration**:
+```yaml
+trigger: calendar_event_starting_soon
+config:
+  calendar_id: primary
+  minutes_before_start: 10  # 1-1440 minutes
+  include_all_day: false
+```
+
+**Use Cases**:
+- Send meeting reminders
+- Prepare meeting materials
+- Update status (Slack, Teams)
+- Start meeting recordings
+
+## AI Agent Details
+
+Google Calendar uses a specialized subagent:
+
+- **Agent Name**: `googlecalendar_agent`
+- **Domain**: Calendar and event management
+- **Capabilities**:
+  - Creating events with natural language
+  - Understanding time zones and date formats
+  - Finding optimal meeting times
+  - Managing attendee lists
+  - Setting up recurring patterns
+  - Handling conflicts and rescheduling
+
+### Agent Intelligence
+
+The Calendar agent can:
+- Parse natural language dates ("next Tuesday", "in 2 weeks")
+- Suggest meeting times based on availability
+- Handle time zone conversions automatically
+- Understand recurring patterns ("every other Friday")
+- Detect scheduling conflicts
+
+## API Reference
+
+Key tools available to the AI:
+
+| Tool | Description |
+|------|-------------|
+| `GOOGLECALENDAR_FIND_FREE_SLOTS` | Find available time slots |
+| `GOOGLECALENDAR_FREE_BUSY_QUERY` | Check calendar availability |
+| `GOOGLECALENDAR_CUSTOM_CREATE_EVENT` | Create new calendar event |
+| `GOOGLECALENDAR_CUSTOM_LIST_CALENDARS` | List all user calendars |
+| `GOOGLECALENDAR_CUSTOM_GET_DAY_SUMMARY` | Get daily schedule summary |
+| `GOOGLECALENDAR_CUSTOM_FETCH_EVENTS` | Fetch events with filters |
+| `GOOGLECALENDAR_CUSTOM_FIND_EVENT` | Search for specific events |
+| `GOOGLECALENDAR_CUSTOM_GET_EVENT` | Get event details |
+| `GOOGLECALENDAR_CUSTOM_DELETE_EVENT` | Delete an event |
+| `GOOGLECALENDAR_CUSTOM_PATCH_EVENT` | Update event details |
+| `GOOGLECALENDAR_CUSTOM_ADD_RECURRENCE` | Add recurring pattern |
+
+For complete API documentation, see [Calendar Tools Reference](/api-reference/integrations/calendar).
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Events not showing up">
+    Check that you've selected the correct calendar. GAIA defaults to your primary calendar but you can specify others.
+  </Accordion>
+  
+  <Accordion title="Can't create events">
+    Verify that you granted the `calendar.events` scope during OAuth. You may need to reconnect and accept all permissions.
+  </Accordion>
+  
+  <Accordion title="Time zone issues">
+    GAIA uses your account's default time zone. Make sure your Google Calendar settings have the correct time zone.
+  </Accordion>
+  
+  <Accordion title="Recurring events not working">
+    Ensure you're using the `CUSTOM_ADD_RECURRENCE` tool. Complex recurrence patterns may need to be broken down into simpler rules.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+  Be specific with time and duration: "Schedule a 30-minute meeting tomorrow at 2pm" works better than "schedule a meeting tomorrow".
+</Tip>
+
+<Tip>
+  Use natural language for dates: "next Friday", "in two weeks", "tomorrow at 2pm" all work perfectly.
+</Tip>
+
+<Warning>
+  When working with attendees, make sure to use full email addresses to avoid ambiguity.
+</Warning>
+
+## Smart Scheduling Tips
+
+### Finding Optimal Meeting Times
+
+```
+You: Find a time for a 1-hour meeting with john@example.com this week
+
+GAIA: Checking availability for you and john@example.com...
+
+Best options:
+1. Thursday 2:00 PM - 3:00 PM ✓ Both available
+2. Friday 10:00 AM - 11:00 AM ✓ Both available
+```
+
+### Buffer Time
+
+```
+You: Schedule meetings with at least 15 minutes buffer between them
+
+GAIA: I'll make sure to leave 15-minute gaps between your meetings going forward.
+```
+
+## Related Integrations
+
+- [Gmail](/integrations/gmail) - Create events from email invitations
+- [Google Meet](/integrations/google-meet) - Add video conferencing to events
+- [Slack](/integrations/slack) - Send meeting reminders to Slack
+- [Linear](/integrations/linear) - Sync deadlines with calendar
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Scheduling Workflows" icon="calendar-days" href="/workflows/scheduling">
+    Automate meeting scheduling with workflows
+  </Card>
+  <Card title="Calendar Triggers" icon="bell" href="/workflows/triggers">
+    Set up event-based automation
+  </Card>
+</CardGroup>

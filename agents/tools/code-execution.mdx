@@ -1,0 +1,488 @@
+---
+title: Code Execution Tool
+description: Execute code safely in E2B sandboxes with chart detection
+---
+
+# Code Execution Tool
+
+The Code Execution tool runs code safely in isolated **E2B sandboxes**, supporting multiple languages with automatic chart detection and streaming.
+
+## Overview
+
+Capabilities:
+
+- Execute Python, JavaScript, TypeScript, R, Java, Bash
+- Isolated sandbox environment (E2B)
+- Chart/visualization detection and upload
+- Real-time streaming to frontend
+- Error handling and debugging
+- Rate limiting for abuse prevention
+
+```python
+# Location: apps/api/app/agents/tools/code_exec_tool.py
+```
+
+## Tool Definition
+
+```python
+@tool
+@with_rate_limiting("code_execution")
+@with_doc(CODE_EXECUTION_TOOL)
+async def execute_code(
+    config: RunnableConfig,
+    language: Annotated[
+        Literal["python", "javascript", "typescript", "r", "java", "bash"],
+        "Programming language"
+    ],
+    code: Annotated[str, "Code to execute in sandbox"],
+    user_id: Annotated[str, "User ID for chart uploads"] = "anonymous",
+) -> str:
+    """
+    Execute code safely in an isolated E2B sandbox with chart detection.
+    
+    Args:
+        config: Runtime configuration
+        language: Programming language
+        code: Code to execute
+        user_id: User ID for cloud storage
+    
+    Returns:
+        Execution output with stdout, stderr, results, and charts
+    """
+    # Input validation
+    if not code or not code.strip():
+        return "Error: Code cannot be empty."
+    
+    if len(code) > 50000:  # 50KB limit
+        return "Error: Code exceeds maximum length of 50,000 characters."
+    
+    if language.lower() not in ["python", "javascript", "typescript", "r", "java", "bash"]:
+        return f"Error: Unsupported language '{language}'."
+    
+    if not settings.E2B_API_KEY:
+        return "Error: E2B API key not configured."
+    
+    writer = get_stream_writer()
+    
+    try:
+        writer({"progress": f"Executing {language} code in secure E2B sandbox..."})
+        
+        # Send initial code data
+        code_data = {
+            "code_data": {
+                "language": language,
+                "code": code,
+                "output": None,
+                "charts": None,
+                "status": "executing",
+            }
+        }
+        writer(code_data)
+        
+        # Create E2B sandbox and execute
+        sbx = Sandbox()
+        execution = sbx.run_code(code, language=language)
+        
+        # Process charts (matplotlib, plotly, etc.)
+        charts, chart_errors = await process_chart_results(
+            execution.results,
+            user_id
+        )
+        
+        # Validate chart data
+        if charts:
+            charts = validate_chart_data(charts)
+        
+        # Update code data with results
+        code_data["code_data"]["output"] = {
+            "stdout": "\n".join(execution.logs.stdout) if execution.logs.stdout else "",
+            "stderr": "\n".join(execution.logs.stderr) if execution.logs.stderr else "",
+            "results": [str(r) for r in execution.results] if execution.results else [],
+            "error": str(execution.error) if execution.error else None,
+        }
+        
+        if charts:
+            code_data["code_data"]["charts"] = charts
+        
+        # Include chart processing errors
+        if chart_errors:
+            current_stderr = code_data["code_data"]["output"]["stderr"]
+            if current_stderr:
+                current_stderr += "\n\nChart Processing Warnings:\n" + "\n".join(chart_errors)
+            else:
+                current_stderr = "Chart Processing Warnings:\n" + "\n".join(chart_errors)
+            code_data["code_data"]["output"]["stderr"] = current_stderr
+        
+        code_data["code_data"]["status"] = "completed"
+        writer(code_data)
+        
+        # Format return message
+        output_parts = []
+        
+        if execution.logs.stdout:
+            output_parts.append(f"Output:\n{chr(10).join(execution.logs.stdout)}")
+        
+        if execution.results:
+            results_text = "\n".join(str(result) for result in execution.results)
+            output_parts.append(f"Results:\n{results_text}")
+        
+        if execution.logs.stderr:
+            output_parts.append(f"Errors:\n{chr(10).join(execution.logs.stderr)}")
+        
+        if execution.error:
+            output_parts.append(f"Execution Error: {execution.error}")
+        
+        if charts:
+            output_parts.append(f"Generated {len(charts)} chart(s)")
+        
+        return "\n\n".join(output_parts) if output_parts else "Code executed successfully (no output)"
+    
+    except Exception as e:
+        error_msg = f"Error executing code: {str(e)}"
+        logger.error(error_msg)
+        
+        # Send error state to frontend
+        if writer:
+            writer({
+                "code_data": {
+                    "language": language,
+                    "code": code,
+                    "output": {"stdout": "", "stderr": str(e), "results": [], "error": str(e)},
+                    "charts": None,
+                    "status": "error",
+                }
+            })
+        
+        return error_msg
+```
+
+## E2B Sandbox
+
+**E2B** (Execute to Build) provides secure, isolated code execution environments:
+
+```python
+from e2b_code_interpreter import Sandbox
+
+# Create sandbox
+sbx = Sandbox()
+
+# Execute code
+execution = sbx.run_code(
+    code="print('Hello from E2B!')",
+    language="python"
+)
+
+# Access results
+print(execution.logs.stdout)  # ["Hello from E2B!"]
+print(execution.results)      # []
+print(execution.error)        # None
+```
+
+### Supported Languages
+
+- **Python**: Full scientific stack (numpy, pandas, matplotlib, etc.)
+- **JavaScript/TypeScript**: Node.js runtime
+- **R**: Statistical computing
+- **Java**: JVM execution
+- **Bash**: Shell scripting
+
+## Chart Detection
+
+Automatically detects and uploads visualizations:
+
+```python
+# Location: apps/api/app/utils/chart_utils.py
+async def process_chart_results(
+    results: List[Any],
+    user_id: str,
+) -> Tuple[List[Dict], List[str]]:
+    """
+    Process execution results to detect and upload charts.
+    
+    Supports:
+    - Matplotlib figures
+    - Plotly charts
+    - PNG/JPEG images
+    - SVG graphics
+    
+    Returns:
+        (charts, errors) where charts are upload metadata
+    """
+    charts = []
+    errors = []
+    
+    for result in results:
+        # Check for matplotlib figure
+        if hasattr(result, 'savefig'):
+            try:
+                # Save to bytes
+                buffer = BytesIO()
+                result.savefig(buffer, format='png', dpi=150, bbox_inches='tight')
+                buffer.seek(0)
+                
+                # Upload to cloud storage
+                url = await upload_chart(
+                    buffer.read(),
+                    user_id=user_id,
+                    filename=f"chart_{uuid.uuid4()}.png"
+                )
+                
+                charts.append({
+                    "type": "image",
+                    "url": url,
+                    "format": "png",
+                })
+            except Exception as e:
+                errors.append(f"Failed to process matplotlib chart: {e}")
+        
+        # Check for plotly figure
+        elif hasattr(result, 'to_json'):
+            try:
+                chart_json = result.to_json()
+                charts.append({
+                    "type": "plotly",
+                    "data": json.loads(chart_json),
+                })
+            except Exception as e:
+                errors.append(f"Failed to process plotly chart: {e}")
+        
+        # Check for base64 image
+        elif isinstance(result, dict) and result.get("format") in ["png", "jpeg", "svg"]:
+            charts.append(result)
+    
+    return charts, errors
+
+def validate_chart_data(charts: List[Dict]) -> List[Dict]:
+    """
+    Validate chart data before sending to frontend.
+    
+    Ensures:
+    - URLs are accessible
+    - Image data is valid base64
+    - JSON data is properly formatted
+    """
+    validated = []
+    
+    for chart in charts:
+        if chart.get("type") == "image" and chart.get("url"):
+            # Validate URL is accessible
+            if is_valid_url(chart["url"]):
+                validated.append(chart)
+        elif chart.get("type") == "plotly" and chart.get("data"):
+            # Validate JSON structure
+            if is_valid_plotly_json(chart["data"]):
+                validated.append(chart)
+    
+    return validated
+```
+
+## Streaming to Frontend
+
+Code execution streams real-time updates:
+
+```javascript
+// Frontend receives SSE stream
+{
+  "code_data": {
+    "language": "python",
+    "code": "import matplotlib.pyplot as plt\n...",
+    "output": {
+      "stdout": "Processing data...\n",
+      "stderr": "",
+      "results": [],
+      "error": null
+    },
+    "charts": [
+      {
+        "type": "image",
+        "url": "https://storage.../chart_abc123.png",
+        "format": "png"
+      }
+    ],
+    "status": "completed"
+  }
+}
+```
+
+## Rate Limiting
+
+Code execution is rate-limited to prevent abuse:
+
+```python
+@with_rate_limiting("code_execution")
+async def execute_code(...):
+    # Rate limit applied before execution
+    ...
+```
+
+Configuration:
+
+```python
+# Location: apps/api/app/config/rate_limits.py
+RATE_LIMITS = {
+    "code_execution": {
+        "requests": 10,  # 10 executions
+        "period": 60,    # per minute
+    }
+}
+```
+
+## Security Features
+
+### Sandboxing
+
+- **Isolated environment**: Each execution in separate container
+- **No network access**: Sandboxes cannot reach external services
+- **Resource limits**: CPU/memory caps prevent resource exhaustion
+- **Automatic cleanup**: Containers destroyed after execution
+
+### Input Validation
+
+```python
+# Length limit
+if len(code) > 50000:
+    return "Error: Code exceeds maximum length"
+
+# Language whitelist
+valid_languages = ["python", "javascript", "typescript", "r", "java", "bash"]
+if language not in valid_languages:
+    return "Error: Unsupported language"
+
+# API key check
+if not settings.E2B_API_KEY:
+    return "Error: E2B API key not configured"
+```
+
+## Usage Examples
+
+### Data Analysis
+
+```python
+# User: "Analyze this CSV data and create a chart"
+
+code = """
+import pandas as pd
+import matplotlib.pyplot as plt
+
+data = pd.DataFrame({
+    'month': ['Jan', 'Feb', 'Mar', 'Apr'],
+    'sales': [100, 150, 120, 180]
+})
+
+plt.figure(figsize=(10, 6))
+plt.bar(data['month'], data['sales'])
+plt.title('Monthly Sales')
+plt.xlabel('Month')
+plt.ylabel('Sales ($)')
+plt.show()
+
+print(f"Total sales: ${data['sales'].sum()}")
+"""
+
+await execute_code(config, language="python", code=code)
+
+# Output:
+# "Output:\nTotal sales: $550\n\nGenerated 1 chart(s)"
+# + Chart streamed to frontend
+```
+
+### Web Scraping
+
+```python
+# User: "Fetch the latest news headlines"
+
+code = """
+import requests
+from bs4 import BeautifulSoup
+
+response = requests.get('https://news.ycombinator.com')
+soup = BeautifulSoup(response.text, 'html.parser')
+
+headlines = []
+for item in soup.find_all('span', class_='titleline')[:5]:
+    headlines.append(item.get_text())
+
+for i, headline in enumerate(headlines, 1):
+    print(f"{i}. {headline}")
+"""
+
+await execute_code(config, language="python", code=code)
+```
+
+### Mathematical Computation
+
+```python
+# User: "Calculate fibonacci numbers"
+
+code = """
+def fibonacci(n):
+    fib = [0, 1]
+    for i in range(2, n):
+        fib.append(fib[i-1] + fib[i-2])
+    return fib
+
+result = fibonacci(10)
+print(f"First 10 Fibonacci numbers: {result}")
+print(f"10th Fibonacci number: {result[-1]}")
+"""
+
+await execute_code(config, language="python", code=code)
+```
+
+<Note>
+E2B sandboxes are ephemeral - files created during execution are not persisted. For persistent storage, use cloud storage APIs within the code.
+</Note>
+
+## Best Practices
+
+### 1. Handle Errors Gracefully
+
+```python
+# Good: Wrap risky operations
+code = """
+try:
+    result = risky_operation()
+    print(f"Success: {result}")
+except Exception as e:
+    print(f"Error: {e}")
+"""
+
+# Avoid: Unhandled errors
+code = "result = risky_operation()"  # May crash sandbox
+```
+
+### 2. Include Print Statements
+
+```python
+# Good: Progress updates
+code = """
+print("Loading data...")
+data = load_data()
+print("Processing...")
+result = process(data)
+print(f"Done! Result: {result}")
+"""
+
+# Avoid: Silent execution
+code = "result = load_and_process()"  # No feedback to user
+```
+
+### 3. Optimize for Streaming
+
+```python
+# Good: Incremental output
+code = """
+for i in range(10):
+    print(f"Processing item {i+1}/10")
+    process_item(i)
+"""
+
+# Avoid: Single output at end
+code = "results = [process(i) for i in range(10)]"  # No progress
+```
+
+## Next Steps
+
+- [Workflow Tool](/agents/tools/workflow) - Automate code execution
+- [Memory Tool](/agents/tools/memory) - Store code snippets
+- [LLM Providers](/agents/llm/providers) - Code generation models

@@ -1,0 +1,633 @@
+---
+title: "State Management"
+description: "Master Zustand state management patterns in GAIA with real examples from the codebase"
+---
+
+## Overview
+
+GAIA uses Zustand for state management across web, desktop, and mobile apps. Zustand provides a lightweight, flexible alternative to Redux with minimal boilerplate and excellent TypeScript support.
+
+## Why Zustand?
+
+<CardGroup cols={2}>
+  <Card title="Minimal Boilerplate" icon="code">
+    No providers, actions, or reducers required
+  </Card>
+  <Card title="TypeScript First" icon="code">
+    Full type inference and safety
+  </Card>
+  <Card title="React Integration" icon="react">
+    Hooks-based API for React
+  </Card>
+  <Card title="DevTools" icon="bug">
+    Redux DevTools integration
+  </Card>
+</CardGroup>
+
+## Basic Store Pattern
+
+A basic Zustand store follows this pattern:
+
+```typescript
+import { create } from 'zustand';
+
+interface CounterState {
+  count: number;
+  increment: () => void;
+  decrement: () => void;
+  reset: () => void;
+}
+
+export const useCounterStore = create<CounterState>((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 })),
+  decrement: () => set((state) => ({ count: state.count - 1 })),
+  reset: () => set({ count: 0 }),
+}));
+```
+
+Usage in components:
+
+```typescript
+function Counter() {
+  const count = useCounterStore((state) => state.count);
+  const increment = useCounterStore((state) => state.increment);
+  
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={increment}>Increment</button>
+    </div>
+  );
+}
+```
+
+## Real Store Examples
+
+### Chat Store
+
+The chat store manages conversations and messages with IndexedDB integration:
+
+```typescript
+// stores/chatStore.ts
+import { create } from 'zustand';
+import type { IConversation, IMessage } from '@/lib/db/chatDb';
+
+interface OptimisticMessage {
+  id: string;
+  conversationId: string | null;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: Date;
+}
+
+interface ChatState {
+  conversations: IConversation[];
+  messagesByConversation: Record<string, IMessage[]>;
+  activeConversationId: string | null;
+  streamingConversationId: string | null;
+  hydrationCompleted: boolean;
+  optimisticMessage: OptimisticMessage | null;
+  
+  // Actions
+  setConversations: (conversations: IConversation[]) => void;
+  upsertConversation: (conversation: IConversation) => void;
+  updateConversation: (
+    conversationId: string,
+    updates: Partial<IConversation>
+  ) => void;
+  setMessagesForConversation: (
+    conversationId: string,
+    messages: IMessage[]
+  ) => void;
+  addOrUpdateMessage: (message: IMessage) => void;
+  removeConversation: (conversationId: string) => void;
+  setActiveConversationId: (id: string | null) => void;
+  setStreamingConversationId: (id: string | null) => void;
+  setOptimisticMessage: (message: OptimisticMessage | null) => void;
+}
+
+export const useChatStore = create<ChatState>((set) => ({
+  conversations: [],
+  messagesByConversation: {},
+  activeConversationId: null,
+  streamingConversationId: null,
+  hydrationCompleted: false,
+  optimisticMessage: null,
+
+  setConversations: (conversations) =>
+    set({ conversations: [...conversations] }),
+
+  upsertConversation: (conversation) =>
+    set((state) => {
+      const index = state.conversations.findIndex(
+        (existing) => existing.id === conversation.id
+      );
+
+      const conversations =
+        index === -1
+          ? [...state.conversations, conversation]
+          : state.conversations.map((existing) =>
+              existing.id === conversation.id ? conversation : existing
+            );
+
+      return { conversations };
+    }),
+
+  updateConversation: (conversationId, updates) =>
+    set((state) => ({
+      conversations: state.conversations.map((conv) =>
+        conv.id === conversationId ? { ...conv, ...updates } : conv
+      ),
+    })),
+
+  setMessagesForConversation: (conversationId, messages) =>
+    set((state) => ({
+      messagesByConversation: {
+        ...state.messagesByConversation,
+        [conversationId]: [...messages],
+      },
+    })),
+
+  addOrUpdateMessage: (message) =>
+    set((state) => {
+      const { conversationId } = message;
+      const existingMessages =
+        state.messagesByConversation[conversationId] ?? [];
+      const index = existingMessages.findIndex(
+        (existing) => existing.id === message.id
+      );
+
+      let updatedMessages =
+        index === -1
+          ? [...existingMessages, message]
+          : existingMessages.map((existing) =>
+              existing.id === message.id ? message : existing
+            );
+
+      // Sort by createdAt for correct chronological order
+      updatedMessages = updatedMessages.sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+      );
+
+      return {
+        messagesByConversation: {
+          ...state.messagesByConversation,
+          [conversationId]: updatedMessages,
+        },
+      };
+    }),
+
+  removeConversation: (conversationId) =>
+    set((state) => {
+      const conversations = state.conversations.filter(
+        (conversation) => conversation.id !== conversationId
+      );
+
+      const { [conversationId]: _removed, ...remainingMessages } =
+        state.messagesByConversation;
+
+      return {
+        conversations,
+        messagesByConversation: remainingMessages,
+        activeConversationId:
+          state.activeConversationId === conversationId
+            ? null
+            : state.activeConversationId,
+      };
+    }),
+
+  setActiveConversationId: (id) => set({ activeConversationId: id }),
+  setStreamingConversationId: (id) => set({ streamingConversationId: id }),
+  setOptimisticMessage: (message) => set({ optimisticMessage: message }),
+}));
+```
+
+Key patterns:
+- **Normalized state**: Messages grouped by conversation ID
+- **Optimistic updates**: Show UI changes before server confirmation
+- **Sorted data**: Messages sorted by timestamp for correct display
+
+### Todo Store with Optimistic Updates
+
+The todo store demonstrates optimistic updates with rollback:
+
+```typescript
+// stores/todoStore.ts
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+import { todoApi } from '@/features/todo/api/todoApi';
+import type { Todo, TodoCreate, TodoUpdate } from '@/types/features/todoTypes';
+
+interface TodoState {
+  todos: Todo[];
+  loading: boolean;
+  error: string | null;
+}
+
+interface TodoActions {
+  addTodo: (todo: Todo) => void;
+  updateTodoOptimistic: (todoId: string, updates: Partial<Todo>) => void;
+  removeTodo: (todoId: string) => void;
+  createTodo: (todoData: TodoCreate) => Promise<Todo>;
+  updateTodo: (todoId: string, updates: TodoUpdate) => Promise<Todo>;
+  deleteTodo: (todoId: string) => Promise<void>;
+}
+
+type TodoStore = TodoState & TodoActions;
+
+export const useTodoStore = create<TodoStore>()((
+  devtools(
+    (set, get) => ({
+      todos: [],
+      loading: false,
+      error: null,
+
+      addTodo: (todo) =>
+        set((state) => ({ todos: [todo, ...state.todos] })),
+
+      updateTodoOptimistic: (todoId, updates) =>
+        set((state) => ({
+          todos: state.todos.map((todo) =>
+            todo.id === todoId ? { ...todo, ...updates } : todo
+          ),
+        })),
+
+      removeTodo: (todoId) =>
+        set((state) => ({
+          todos: state.todos.filter((todo) => todo.id !== todoId),
+        })),
+
+      createTodo: async (todoData) => {
+        set({ error: null });
+        try {
+          const newTodo = await todoApi.createTodo(todoData);
+          get().addTodo(newTodo);
+          return newTodo;
+        } catch (err) {
+          const error =
+            err instanceof Error ? err.message : 'Failed to create todo';
+          set({ error });
+          throw err;
+        }
+      },
+
+      updateTodo: async (todoId, updates) => {
+        set({ error: null });
+
+        // Save current state for rollback
+        const currentTodo = get().todos.find((t) => t.id === todoId);
+        if (!currentTodo) throw new Error('Todo not found');
+
+        // Optimistic update
+        get().updateTodoOptimistic(todoId, updates as Partial<Todo>);
+
+        try {
+          const updatedTodo = await todoApi.updateTodo(todoId, updates);
+          get().updateTodoOptimistic(todoId, updatedTodo);
+          return updatedTodo;
+        } catch (err) {
+          // Rollback on error
+          get().updateTodoOptimistic(todoId, currentTodo);
+          const error =
+            err instanceof Error ? err.message : 'Failed to update todo';
+          set({ error });
+          throw err;
+        }
+      },
+
+      deleteTodo: async (todoId) => {
+        set({ error: null });
+
+        // Save for rollback
+        const currentTodo = get().todos.find((t) => t.id === todoId);
+        if (!currentTodo) throw new Error('Todo not found');
+
+        // Optimistic removal
+        get().removeTodo(todoId);
+
+        try {
+          await todoApi.deleteTodo(todoId);
+        } catch (err) {
+          // Rollback on error
+          get().addTodo(currentTodo);
+          const error =
+            err instanceof Error ? err.message : 'Failed to delete todo';
+          set({ error });
+          throw err;
+        }
+      },
+    }),
+    { name: 'todo-store' }
+  )
+));
+
+// Selectors
+export const useTodos = () => useTodoStore((state) => state.todos);
+export const useTodoLoading = () => useTodoStore((state) => state.loading);
+export const useTodoError = () => useTodoStore((state) => state.error);
+```
+
+Key patterns:
+- **Optimistic updates**: Update UI immediately, rollback on error
+- **Error handling**: Graceful error recovery with user feedback
+- **Selectors**: Export convenience hooks for common selections
+- **DevTools**: Integration with Redux DevTools for debugging
+
+### UI State Store
+
+Manage global UI state like sidebars, modals, and themes:
+
+```typescript
+// stores/uiStore.ts
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+interface UIState {
+  sidebarOpen: boolean;
+  theme: 'light' | 'dark' | 'system';
+  compactMode: boolean;
+  
+  toggleSidebar: () => void;
+  setTheme: (theme: 'light' | 'dark' | 'system') => void;
+  setCompactMode: (compact: boolean) => void;
+}
+
+export const useUIStore = create<UIState>()((
+  persist(
+    (set) => ({
+      sidebarOpen: true,
+      theme: 'system',
+      compactMode: false,
+
+      toggleSidebar: () =>
+        set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+      setTheme: (theme) => set({ theme }),
+
+      setCompactMode: (compact) => set({ compactMode: compact }),
+    }),
+    {
+      name: 'ui-settings',
+    }
+  )
+));
+```
+
+Key patterns:
+- **Persistence**: Settings persist across sessions
+- **Simple state**: Boolean flags and enums for UI state
+
+## Advanced Patterns
+
+### Store Slices
+
+Split large stores into logical slices:
+
+```typescript
+import { create } from 'zustand';
+
+interface AuthSlice {
+  user: User | null;
+  token: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+}
+
+interface PreferencesSlice {
+  language: string;
+  timezone: string;
+  setLanguage: (lang: string) => void;
+  setTimezone: (tz: string) => void;
+}
+
+const createAuthSlice = (set: any): AuthSlice => ({
+  user: null,
+  token: null,
+  login: async (email, password) => {
+    const { user, token } = await api.login(email, password);
+    set({ user, token });
+  },
+  logout: () => set({ user: null, token: null }),
+});
+
+const createPreferencesSlice = (set: any): PreferencesSlice => ({
+  language: 'en',
+  timezone: 'UTC',
+  setLanguage: (lang) => set({ language: lang }),
+  setTimezone: (tz) => set({ timezone: tz }),
+});
+
+type AppStore = AuthSlice & PreferencesSlice;
+
+export const useAppStore = create<AppStore>()((...a) => ({
+  ...createAuthSlice(...a),
+  ...createPreferencesSlice(...a),
+}));
+```
+
+### Computed Values
+
+Derive state with selectors:
+
+```typescript
+export const useActiveTodos = () =>
+  useTodoStore((state) =>
+    state.todos.filter((todo) => !todo.completed)
+  );
+
+export const useCompletedCount = () =>
+  useTodoStore((state) =>
+    state.todos.filter((todo) => todo.completed).length
+  );
+
+export const useTodosByProject = (projectId: string) =>
+  useTodoStore((state) =>
+    state.todos.filter((todo) => todo.projectId === projectId)
+  );
+```
+
+### Async Actions
+
+Handle async operations with loading states:
+
+```typescript
+interface DataState {
+  items: Item[];
+  loading: boolean;
+  error: string | null;
+  
+  fetchItems: () => Promise<void>;
+}
+
+export const useDataStore = create<DataState>((set) => ({
+  items: [],
+  loading: false,
+  error: null,
+
+  fetchItems: async () => {
+    set({ loading: true, error: null });
+    try {
+      const items = await api.getItems();
+      set({ items, loading: false });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Unknown error',
+        loading: false,
+      });
+    }
+  },
+}));
+```
+
+## Best Practices
+
+### 1. Separate State and Actions
+
+```typescript
+// Good: Clear separation
+interface State {
+  count: number;
+}
+
+interface Actions {
+  increment: () => void;
+}
+
+type Store = State & Actions;
+```
+
+### 2. Use Selectors for Performance
+
+```typescript
+// Bad: Subscribes to entire store
+function Component() {
+  const store = useStore();
+  return <div>{store.count}</div>;
+}
+
+// Good: Subscribes only to count
+function Component() {
+  const count = useStore((state) => state.count);
+  return <div>{count}</div>;
+}
+```
+
+### 3. Avoid Nested Objects
+
+```typescript
+// Bad: Hard to update
+interface State {
+  user: {
+    profile: {
+      name: string;
+    };
+  };
+}
+
+// Good: Flat structure
+interface State {
+  userName: string;
+}
+```
+
+### 4. Type Everything
+
+```typescript
+// Always provide explicit types
+export const useStore = create<StoreType>()((set) => ({
+  // ...
+}));
+```
+
+## Middleware
+
+### Persist
+
+Persist state to localStorage:
+
+```typescript
+import { persist } from 'zustand/middleware';
+
+export const useStore = create<State>()((
+  persist(
+    (set) => ({
+      // state and actions
+    }),
+    {
+      name: 'my-store',
+      partialize: (state) => ({ count: state.count }), // Only persist count
+    }
+  )
+));
+```
+
+### DevTools
+
+Integrate with Redux DevTools:
+
+```typescript
+import { devtools } from 'zustand/middleware';
+
+export const useStore = create<State>()((
+  devtools(
+    (set) => ({
+      // state and actions
+    }),
+    { name: 'MyStore' }
+  )
+));
+```
+
+## Testing Stores
+
+```typescript
+import { renderHook, act } from '@testing-library/react';
+import { useCounterStore } from './counterStore';
+
+describe('CounterStore', () => {
+  it('increments count', () => {
+    const { result } = renderHook(() => useCounterStore());
+    
+    act(() => {
+      result.current.increment();
+    });
+    
+    expect(result.current.count).toBe(1);
+  });
+});
+```
+
+## Common Patterns Summary
+
+<CardGroup cols={2}>
+  <Card title="Optimistic Updates" icon="bolt">
+    Update UI immediately, rollback on error
+  </Card>
+  <Card title="Normalized State" icon="table">
+    Store entities by ID in objects, not arrays
+  </Card>
+  <Card title="Computed Values" icon="calculator">
+    Use selectors to derive state
+  </Card>
+  <Card title="Async Actions" icon="spinner">
+    Handle loading and error states
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Structure" icon="layer-group" href="/developers/frontend/component-structure">
+    Learn component organization patterns
+  </Card>
+  <Card title="Web App" icon="browser" href="/developers/frontend/web-app">
+    Explore the Next.js application
+  </Card>
+  <Card title="API Integration" icon="plug" href="/developers/api/overview">
+    Connect stores to the backend
+  </Card>
+  <Card title="Testing" icon="vial" href="/developers/testing">
+    Write tests for your stores
+  </Card>
+</CardGroup>

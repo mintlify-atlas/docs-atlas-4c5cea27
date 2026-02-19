@@ -1,0 +1,417 @@
+---
+title: Creating Agent Prompts
+description: Master prompt engineering for GAIA agents with best practices and real examples
+---
+
+Prompts define agent behavior, personality, and capabilities. This guide covers creating effective system prompts for LangGraph agents.
+
+## Prompt Structure
+
+GAIA prompts are Python strings in `app/agents/prompts/` that define:
+
+1. **Identity**: Who the agent is
+2. **Purpose**: What the agent does
+3. **Behavior**: How the agent responds
+4. **Constraints**: What the agent should avoid
+5. **Context**: Information available to the agent
+
+## Comms Agent Prompt
+
+From `app/agents/prompts/comms_prompts.py`, the comms agent has a conversational personality:
+
+```python
+from app.constants.general import NEW_MESSAGE_BREAKER
+
+COMMS_AGENT_PROMPT = f"""
+You are GAIA (General-purpose AI Assistant), but you don't act like 
+an assistant. You act like a human female friend in her early 20s — 
+caring, playful, a little sarcastic, nonchalant but genuinely there 
+for the user.
+
+—Core Identity & Purpose—
+- GAIA is your sharp early-20s best friend — playful, a little 
+  sarcastic, emotionally intelligent, and confidently competent.
+- Mission: orchestrate the user's day-to-day — automate boring stuff, 
+  stitch tools together, reduce friction, and surface options.
+- Values: privacy-first, consent and clarity; remembers what matters, 
+  celebrates small wins, and respects boundaries.
+
+—Response Style—
+- Sound like you're texting a close friend on WhatsApp: casual, 
+  short, messy, and alive.
+- Variability is key: Don't repeat the same phrasing twice. Rotate 
+  between hype, dry, sarcastic, playful.
+- Brevity wins: Most replies under 10 words. One-liners > paragraphs.
+- Keep emojis EXTREMELY RARE - Use only when absolutely necessary.
+- Tone mirroring is essential: Match the user's vibe exactly.
+
+— Multiple Chat Bubbles:
+USE {NEW_MESSAGE_BREAKER} between:
+• Acknowledgment → then the actual content
+• Short conversational messages sent as separate texts
+• Context/intro → then detailed data
+
+DO NOT use {NEW_MESSAGE_BREAKER} for:
+• Structured lists or data within one response
+• Code blocks or technical output
+"""
+```
+
+### Key Elements
+
+1. **Personality Definition**: Clear identity and tone
+2. **Style Guidelines**: Specific response patterns
+3. **Message Formatting**: Using `NEW_MESSAGE_BREAKER` for chat bubbles
+4. **Constraints**: What to avoid
+
+## Creating a Custom Prompt
+
+### 1. Create Prompt File
+
+Create `app/agents/prompts/my_agent_prompts.py`:
+
+```python
+"""Prompts for my custom agent."""
+
+MY_AGENT_SYSTEM_PROMPT = """
+You are a specialized assistant for [specific domain].
+
+—Identity—
+- Role: [What you are]
+- Expertise: [Your knowledge areas]
+- Limitations: [What you cannot do]
+
+—Capabilities—
+You have access to the following tools:
+1. tool_one: [Description and when to use]
+2. tool_two: [Description and when to use]
+
+—Behavior Guidelines—
+- Be [personality trait 1]
+- Always [required behavior]
+- Never [prohibited behavior]
+
+—Response Format—
+- Keep responses [length guideline]
+- Use [formatting style]
+- Structure output as [format]
+
+—Context Awareness—
+- Current datetime: {current_datetime}
+- User timezone: {user_timezone}
+- Relevant memories: {memories}
+"""
+```
+
+### 2. Use Dynamic Variables
+
+Incorporate runtime context:
+
+```python
+def build_my_agent_prompt(
+    current_datetime: str,
+    user_timezone: str,
+    memories: list[str],
+    user_name: str,
+) -> str:
+    """Build prompt with dynamic context."""
+    memories_text = "\n".join(f"- {m}" for m in memories)
+
+    return MY_AGENT_SYSTEM_PROMPT.format(
+        current_datetime=current_datetime,
+        user_timezone=user_timezone,
+        memories=memories_text,
+        user_name=user_name,
+    )
+```
+
+## Prompt Injection
+
+Inject prompts into agents via system prompt nodes:
+
+```python
+# app/agents/core/nodes/manage_system_prompts.py
+from langchain_core.messages import SystemMessage
+from app.agents.prompts.my_agent_prompts import MY_AGENT_SYSTEM_PROMPT
+
+async def manage_system_prompts_node(
+    state: State,
+    config: RunnableConfig,
+) -> dict:
+    """Inject system prompts before LLM call."""
+    user_time = config["configurable"].get("user_time")
+    memories = state.get("memories", [])
+
+    # Build prompt with context
+    system_prompt = build_my_agent_prompt(
+        current_datetime=user_time.isoformat(),
+        user_timezone=str(user_time.tzinfo),
+        memories=memories,
+        user_name=config["configurable"].get("user_name"),
+    )
+
+    # Add as system message
+    messages = state.get("messages", [])
+    messages.insert(0, SystemMessage(content=system_prompt))
+
+    return {"messages": messages}
+```
+
+## Workflow-Specific Prompts
+
+From `app/agents/prompts/workflow_prompts.py`:
+
+```python
+WORKFLOW_CREATION_PROMPT = """
+You are a workflow design assistant helping users create automation 
+workflows.
+
+—Workflow Structure—
+A workflow consists of:
+1. Trigger: Event that starts the workflow
+2. Conditions: Optional filters
+3. Actions: Tasks to execute
+4. Schedule: When to run (optional)
+
+—Available Triggers—
+- time_trigger: Run at specific times
+- email_trigger: On email receipt
+- calendar_trigger: Before/after events
+
+—Available Actions—
+- send_notification: Alert user
+- create_todo: Add task
+- send_email: Email someone
+
+—Design Guidelines—
+1. Ask clarifying questions to understand intent
+2. Suggest sensible defaults
+3. Validate trigger-action compatibility
+4. Warn about potential issues
+
+Example workflow:
+```json
+{
+  "name": "Morning Briefing",
+  "trigger": {
+    "type": "time_trigger",
+    "time": "08:00",
+    "timezone": "America/New_York"
+  },
+  "actions": [
+    {
+      "type": "create_todo",
+      "title": "Review morning briefing"
+    }
+  ]
+}
+```
+"""
+```
+
+## Memory-Aware Prompts
+
+Incorporate user memories:
+
+```python
+from app.agents.prompts.memory_prompts import MEMORY_CONTEXT_PROMPT
+
+MEMORY_CONTEXT_PROMPT = """
+—Relevant Context—
+Based on previous interactions:
+{memories}
+
+Use this context to:
+- Personalize responses
+- Reference past conversations
+- Build on previous topics
+- Avoid repeating yourself
+"""
+
+def inject_memory_context(
+    base_prompt: str,
+    memories: list[str],
+) -> str:
+    """Add memory context to base prompt."""
+    if not memories:
+        return base_prompt
+
+    memory_section = MEMORY_CONTEXT_PROMPT.format(
+        memories="\n".join(f"• {m}" for m in memories)
+    )
+
+    return f"{base_prompt}\n\n{memory_section}"
+```
+
+## Tool Usage Instructions
+
+Guide agents on when to use tools:
+
+```python
+TOOL_USAGE_PROMPT = """
+—Tool Selection Guidelines—
+
+**When to use create_todo:**
+- User mentions tasks, reminders, or things to do
+- User says "remind me to" or "I need to"
+- Converting plans into actionable items
+
+**When to use get_weather:**
+- User asks about weather conditions
+- Planning outdoor activities
+- Travel preparation questions
+
+**When to use search_memory:**
+- User references past conversations ("what did I say about...")
+- Checking previous preferences or decisions
+- Retrieving context for better responses
+
+**General Rules:**
+1. Use tools proactively when beneficial
+2. Combine multiple tools for complex requests
+3. Explain tool usage when it's not obvious
+4. Handle tool errors gracefully
+"""
+```
+
+## Multi-Agent Prompts
+
+For subagents with specific roles:
+
+```python
+# Email agent
+EMAIL_AGENT_PROMPT = """
+You are the email management specialist.
+
+Responsibilities:
+- Draft professional emails
+- Manage inbox organization
+- Schedule email sends
+- Filter spam and priority
+
+Always:
+- Maintain appropriate tone
+- Check for attachments when mentioned
+- Verify recipient addresses
+- Suggest subject lines
+"""
+
+# Calendar agent
+CALENDAR_AGENT_PROMPT = """
+You are the calendar and scheduling specialist.
+
+Responsibilities:
+- Create and manage events
+- Find meeting slots
+- Handle conflicts
+- Send invites
+
+Always:
+- Check for scheduling conflicts
+- Consider time zones
+- Set appropriate reminders
+- Include relevant details
+"""
+```
+
+## Testing Prompts
+
+Evaluate prompt effectiveness:
+
+```python
+import pytest
+from app.agents.core.agent import call_agent_silent
+
+@pytest.mark.asyncio
+async def test_prompt_behavior():
+    """Test that prompt produces expected behavior."""
+    request = MessageRequestWithHistory(
+        message="Create a todo for tomorrow",
+        messages=[],
+    )
+
+    response, tools_used = await call_agent_silent(
+        request=request,
+        conversation_id="test-123",
+        user={"user_id": "test", "name": "Test User"},
+        user_time=datetime.now(),
+    )
+
+    # Verify expected behavior
+    assert "create_todo" in tools_used
+    assert "tomorrow" in response.lower()
+```
+
+<Warning>
+**Prompt Engineering Best Practices**:
+- Be specific about desired behavior
+- Include examples for complex tasks
+- Use clear section headers (—Section—)
+- Provide context variables dynamically
+- Test prompts with diverse inputs
+- Iterate based on agent performance
+- Keep prompts maintainable (use functions for dynamic parts)
+- Document prompt changes and reasoning
+</Warning>
+
+## Common Patterns
+
+<AccordionGroup>
+  <Accordion title="Conversational Tone">
+    ```python
+    PROMPT = """
+    Speak naturally like a helpful colleague.
+    - Use contractions ("I'll" not "I will")
+    - Ask follow-up questions
+    - Show empathy
+    - Be concise
+    """
+    ```
+  </Accordion>
+
+  <Accordion title="Structured Output">
+    ```python
+    PROMPT = """
+    Always format responses as:
+    1. Summary (1 sentence)
+    2. Details (bullet points)
+    3. Next steps (numbered list)
+    """
+    ```
+  </Accordion>
+
+  <Accordion title="Error Handling">
+    ```python
+    PROMPT = """
+    When tools fail:
+    1. Acknowledge the issue
+    2. Explain what went wrong
+    3. Suggest alternatives
+    4. Never expose technical errors
+    """
+    ```
+  </Accordion>
+
+  <Accordion title="Context Awareness">
+    ```python
+    PROMPT = """
+    Consider:
+    - Time of day (morning/evening greetings)
+    - User's timezone
+    - Recent conversation history
+    - User preferences from memory
+    """
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Agents" icon="flask" href="/developers/agents/testing-agents">
+    Learn how to test your prompts and agents
+  </Card>
+  <Card title="Creating Tools" icon="wrench" href="/developers/agents/creating-tools">
+    Build tools that work with your prompts
+  </Card>
+</CardGroup>

@@ -1,0 +1,386 @@
+---
+title: Slack Integration
+description: Send messages, manage channels, and automate team communication
+---
+
+The Slack integration enables GAIA to send messages, manage channels, and automate communication workflows in your Slack workspace. Let AI handle team communication naturally.
+
+## Features
+
+- **Send Messages**: Post messages to channels and DMs
+- **Channel Management**: Create and manage Slack channels
+- **Thread Replies**: Reply to message threads
+- **File Sharing**: Upload and share files
+- **User Management**: Find users and manage mentions
+- **Reactions**: Add emoji reactions to messages
+- **Search**: Search messages and content
+- **Reminders**: Set Slack reminders
+
+## Setup
+
+<Steps>
+  <Step title="Navigate to Integrations">
+    Go to **Settings > Integrations** in GAIA
+  </Step>
+  <Step title="Find Slack">
+    Search for "Slack" in the Communication category
+  </Step>
+  <Step title="Connect Workspace">
+    Click **Connect** to start OAuth flow
+  </Step>
+  <Step title="Select Workspace">
+    Choose your Slack workspace from the dropdown
+  </Step>
+  <Step title="Authorize Permissions">
+    Review and approve the requested permissions
+  </Step>
+  <Step title="Verify Connection">
+    GAIA will confirm connection and show your workspace name
+  </Step>
+</Steps>
+
+<Warning>
+  Some Slack workspaces require admin approval for new integrations. Contact your workspace admin if you encounter permission issues.
+</Warning>
+
+## OAuth Configuration
+
+The Slack integration uses OAuth 2.0:
+
+- **Provider**: Composio
+- **Toolkit**: SLACK
+- **Auth Type**: OAuth 2.0
+- **Featured**: Yes
+- **Managed By**: Composio platform
+
+## Usage Examples
+
+### Sending Messages
+
+```
+You: Send a message to #engineering: "Deployment completed successfully ✅"
+
+GAIA: Message sent to #engineering
+
+✓ Posted: "Deployment completed successfully ✅"
+  Channel: #engineering
+  Timestamp: 2:47 PM
+```
+
+### Direct Messages
+
+```
+You: DM @john: "Can you review the PR when you get a chance?"
+
+GAIA: Direct message sent to John Smith
+
+✓ Message delivered
+```
+
+### Channel Management
+
+```
+You: Create a new channel called "project-alpha" and invite @john and @sarah
+
+GAIA: Created new channel and invited members:
+
+✓ Channel created: #project-alpha
+✓ Invited: @john, @sarah
+```
+
+### Thread Replies
+
+```
+You: Reply to that message in #engineering: "Build logs are available in Jenkins"
+
+GAIA: Replied in thread:
+
+✓ Thread reply posted in #engineering
+  Parent: "Deployment completed successfully ✅"
+```
+
+### File Sharing
+
+```
+You: Share the Q4 report PDF to #leadership
+
+GAIA: Uploading file to #leadership...
+
+✓ Uploaded: Q4_Report.pdf (2.3 MB)
+  Channel: #leadership
+  Message: "Q4 Report for review"
+```
+
+### Searching Messages
+
+```
+You: Search Slack for messages about "deployment" from last week
+
+GAIA: Found 8 messages about "deployment" from last week:
+
+1. @john in #engineering: "Deployment scheduled for Friday" (6 days ago)
+2. @sarah in #devops: "Deployment rollback completed" (5 days ago)
+3. @alex in #engineering: "Deployment successful" (4 days ago)
+...
+```
+
+## Available Actions
+
+The Slack agent can perform:
+
+- Send messages to channels
+- Send direct messages
+- Reply to threads
+- Create channels
+- Invite users to channels
+- Upload files
+- Add reactions
+- Set reminders
+- Search messages
+- Get user info
+- List channels
+- Pin messages
+- Archive channels
+
+## Workflows & Triggers
+
+Slack supports powerful automation triggers:
+
+### New Message Trigger
+
+**Trigger**: When a new message is posted in Slack
+
+**Configuration**:
+```yaml
+trigger: slack_new_message
+config:
+  channel_ids: ""  # Empty = all channels
+  exclude_bot_messages: false
+  exclude_direct_messages: false
+  exclude_group_messages: false
+  exclude_mpim_messages: false
+  exclude_thread_replies: false
+```
+
+**Use Cases**:
+- Auto-respond to mentions
+- Forward important messages
+- Create tasks from messages
+- Monitor keywords
+- Customer support automation
+
+**Example Workflow**:
+```yaml
+trigger: slack_new_message
+filters:
+  - channel: "#support"
+  - contains: "urgent"
+actions:
+  - notify: linear
+    priority: high
+```
+
+### Channel Created Trigger
+
+**Trigger**: When a new channel is created
+
+**Configuration**:
+```yaml
+trigger: slack_channel_created
+config: {}
+```
+
+**Use Cases**:
+- Auto-configure channel settings
+- Add standard members
+- Send welcome messages
+- Notify admins
+
+## AI Agent Details
+
+Slack uses a specialized subagent:
+
+- **Agent Name**: `slack_agent`
+- **Domain**: Team communication and collaboration
+- **Capabilities**:
+  - Writing professional messages
+  - Understanding channel context
+  - Managing conversations
+  - File and link sharing
+  - User mentions and notifications
+  - Thread management
+
+### Agent Intelligence
+
+The Slack agent can:
+- Format messages with markdown
+- Tag relevant users automatically
+- Choose appropriate channels
+- Handle emoji and reactions
+- Understand message context
+- Manage conversation threads
+
+## API Reference
+
+Key tools available:
+
+| Tool | Description |
+|------|-------------|
+| `SLACK_TEST_AUTH` | Test connection and get user info |
+| `SLACK_CHAT_POST_MESSAGE` | Send message to channel |
+| `SLACK_CONVERSATIONS_CREATE` | Create new channel |
+| `SLACK_CONVERSATIONS_INVITE` | Invite users to channel |
+| `SLACK_CONVERSATIONS_LIST` | List all channels |
+| `SLACK_USERS_LIST` | List workspace users |
+| `SLACK_FILES_UPLOAD` | Upload file |
+| `SLACK_REACTIONS_ADD` | Add reaction to message |
+| `SLACK_SEARCH_MESSAGES` | Search message history |
+| `SLACK_REMINDERS_ADD` | Create reminder |
+
+For complete API documentation, see [Slack Tools Reference](/api-reference/integrations/slack).
+
+## Metadata Extraction
+
+GAIA automatically extracts your Slack workspace info:
+
+```json
+{
+  "user_id": "U123ABC",
+  "username": "john.smith",
+  "team_id": "T456DEF",
+  "team_name": "Acme Corp"
+}
+```
+
+This enables:
+- Personalized messaging
+- User mentions
+- Team-specific operations
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't send messages to channel">
+    Verify GAIA is added to the channel. Use `/invite @GAIA` in the channel.
+  </Accordion>
+  
+  <Accordion title="File upload failed">
+    Check file size limits (Slack free: 5GB per file). Ensure file format is supported.
+  </Accordion>
+  
+  <Accordion title="User not found">
+    Make sure you're using the correct username or user ID. Users must be in the same workspace.
+  </Accordion>
+  
+  <Accordion title="Permission errors">
+    Some actions require specific OAuth scopes. You may need to reconnect the integration.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+  Use @mentions to notify specific users: "Send to #engineering: @john please review the PR"
+</Tip>
+
+<Tip>
+  Format messages with markdown: Use *bold*, _italic_, `code`, and > quotes for better readability.
+</Tip>
+
+<Warning>
+  Be mindful of channel activity. Avoid spamming channels with automated messages.
+</Warning>
+
+## Advanced Usage
+
+### Automated Notifications
+
+```
+You: Every time a deployment completes, send a message to #engineering
+
+GAIA: I'll set up that workflow for you.
+
+✓ Workflow created: Deployment notifications
+  Trigger: Deployment completed
+  Action: Post to #engineering
+```
+
+### Smart Routing
+
+```
+You: When someone mentions "bug" in #general, create a Linear issue and post the link back
+
+GAIA: Setting up bug tracking workflow...
+
+✓ Workflow active
+  Watches: #general for "bug" keyword
+  Creates: Linear issue
+  Posts: Issue link to thread
+```
+
+### Team Standup
+
+```
+You: Post my daily standup to #team:
+- Completed: Login feature
+- Today: Working on API integration
+- Blockers: None
+
+GAIA: Posted standup to #team
+
+✓ Daily Standup - John Smith
+  ✅ Completed: Login feature
+  🔄 Today: Working on API integration
+  ⛔ Blockers: None
+```
+
+### Integration Workflows
+
+```
+You: When I get an email from support@, forward it to #customer-support
+
+GAIA: Created email-to-Slack workflow:
+
+✓ Monitoring: support@company.com
+✓ Posts to: #customer-support
+✓ Status: Active
+```
+
+## Message Formatting
+
+Slack supports rich message formatting:
+
+```markdown
+*bold text*
+_italic text_
+~strikethrough~
+`code`
+```code block```
+> quote
+• bullet list
+```
+
+### Mentions
+
+- `@username` - Mention user
+- `@channel` - Notify all channel members
+- `@here` - Notify active members
+- `#channel` - Link to channel
+
+## Related Integrations
+
+- [Linear](/integrations/linear) - Create Linear issues from Slack
+- [GitHub](/integrations/github) - Send GitHub updates to Slack
+- [Gmail](/integrations/gmail) - Forward emails to Slack
+- [Google Calendar](/integrations/google-calendar) - Send meeting reminders
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Slack Workflows" icon="diagram-project" href="/workflows/slack">
+    Build automated Slack workflows
+  </Card>
+  <Card title="Chatbots" icon="robot" href="/guides/slack-bot">
+    Create custom Slack bots with GAIA
+  </Card>
+</CardGroup>

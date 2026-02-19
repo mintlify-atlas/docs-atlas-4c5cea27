@@ -1,0 +1,262 @@
+---
+title: Gmail Integration
+description: Manage emails, compose messages, and organize your inbox with AI assistance
+---
+
+The Gmail integration allows GAIA to read, compose, send, and organize emails in your Gmail account. With AI-powered email management, you can automate email workflows and handle inbox tasks naturally.
+
+## Features
+
+- **Read and Search Emails**: Find emails by sender, subject, date, or content
+- **Compose and Send**: Write and send emails with AI assistance
+- **Label Management**: Organize emails with labels and folders
+- **Draft Management**: Create, edit, and manage email drafts
+- **Attachment Handling**: Work with email attachments
+- **Email Automation**: Set up automated email workflows
+
+## Setup
+
+<Steps>
+  <Step title="Open Integrations">
+    Navigate to **Settings > Integrations** in GAIA
+  </Step>
+  <Step title="Find Gmail">
+    Search for "Gmail" or find it in the Communication category
+  </Step>
+  <Step title="Click Connect">
+    Click the **Connect** button to start OAuth flow
+  </Step>
+  <Step title="Authorize Access">
+    Sign in with your Google account and grant permissions
+  </Step>
+  <Step title="Complete Setup">
+    You'll be redirected back to GAIA once authorization is complete
+  </Step>
+</Steps>
+
+<Warning>
+  Gmail requires specific OAuth scopes. Make sure you grant all requested permissions for full functionality.
+</Warning>
+
+## OAuth Configuration
+
+The Gmail integration uses the following OAuth scopes:
+
+- `https://www.googleapis.com/auth/gmail.modify` - Read, compose, and send emails
+
+### Provider Details
+
+- **Provider**: Composio
+- **Toolkit**: GMAIL
+- **Auth Type**: OAuth 2.0
+- **Managed By**: Composio platform
+
+## Usage Examples
+
+### Reading Emails
+
+```
+You: Show me unread emails from today
+
+GAIA: I found 5 unread emails from today:
+1. John Doe - "Project Update" (9:30 AM)
+2. Sarah Smith - "Meeting Tomorrow" (10:15 AM)
+...
+```
+
+### Composing Emails
+
+```
+You: Send an email to john@example.com thanking him for the project update
+
+GAIA: I'll compose and send that email for you.
+
+✓ Email sent to john@example.com
+Subject: Thank you for the update
+```
+
+### Organizing Inbox
+
+```
+You: Label all emails from newsletter@example.com as "Newsletters"
+
+GAIA: I'll add the "Newsletters" label to those emails.
+
+✓ Labeled 12 emails from newsletter@example.com
+```
+
+### Searching Emails
+
+```
+You: Find emails about "quarterly report" from last month
+
+GAIA: I found 3 emails matching your search:
+1. From: boss@company.com - Q4 Report Draft
+2. From: finance@company.com - Quarterly Financial Summary
+3. From: team@company.com - Report Review Meeting
+```
+
+## Available Actions
+
+The Gmail agent can perform the following actions:
+
+- Get user profile information
+- List and search emails
+- Read email content
+- Compose and send emails
+- Create and manage drafts
+- Add and remove labels
+- Mark emails as read/unread
+- Archive and delete emails
+- Handle attachments
+- Manage filters
+- Search with advanced queries
+
+## Workflows & Triggers
+
+The Gmail integration supports automated workflows through triggers:
+
+### New Gmail Message Trigger
+
+**Trigger**: When a new email arrives in your inbox
+
+**Auto-Activated**: Yes (monitors INBOX by default)
+
+**Use Cases**:
+- Auto-respond to certain emails
+- Forward important emails to Slack
+- Create tasks from emails
+- Log emails to a database
+
+**Example Workflow**:
+```yaml
+trigger: gmail_new_message
+config:
+  labelIds: INBOX
+  userId: me
+actions:
+  - if: subject contains "urgent"
+    then: send_slack_message
+    channel: "#urgent-emails"
+```
+
+## AI Agent Details
+
+Gmail uses a specialized subagent for intelligent email management:
+
+- **Agent Name**: `gmail_agent`
+- **Domain**: Email management and communication
+- **Capabilities**: 
+  - Composing professional emails
+  - Understanding email context
+  - Organizing inbox intelligently
+  - Managing labels and filters
+  - Handling attachments
+  - Email workflow automation
+
+### Agent System Prompt
+
+The Gmail agent is designed to:
+- Compose professional, context-aware emails
+- Understand natural language email requests
+- Maintain proper email etiquette
+- Suggest labels and organizational structures
+- Automate repetitive email tasks
+
+## API Reference
+
+The Gmail integration exposes these tools to the AI:
+
+| Tool | Description |
+|------|-------------|
+| `GMAIL_GET_PROFILE` | Get user's Gmail profile information |
+| `GMAIL_LIST_MESSAGES` | List emails with filters |
+| `GMAIL_GET_MESSAGE` | Get full email content |
+| `GMAIL_SEND_MESSAGE` | Send a new email |
+| `GMAIL_CREATE_DRAFT` | Create email draft |
+| `GMAIL_MODIFY_MESSAGE` | Update email labels/status |
+| `GMAIL_TRASH_MESSAGE` | Move email to trash |
+| `GMAIL_SEARCH` | Search emails with query |
+
+For complete API documentation, see [Gmail Tools Reference](/api-reference/integrations/gmail).
+
+## Metadata Extraction
+
+GAIA automatically extracts and stores your Gmail email address when you connect:
+
+```json
+{
+  "email": "your.email@gmail.com"
+}
+```
+
+This is used for:
+- Personalizing email composition
+- Filtering your own sent emails
+- Identifying your email address in conversations
+
+## Troubleshooting
+
+### Connection Issues
+
+<AccordionGroup>
+  <Accordion title="OAuth authorization failed">
+    Make sure you're signing in with the correct Google account and accepting all permission requests.
+  </Accordion>
+  
+  <Accordion title="Can't read emails">
+    Verify that you granted the `gmail.modify` scope during authorization. You may need to reconnect the integration.
+  </Accordion>
+  
+  <Accordion title="Rate limit errors">
+    Gmail has API rate limits. GAIA automatically handles rate limiting, but extremely high volume may cause delays.
+  </Accordion>
+</AccordionGroup>
+
+### Common Questions
+
+<AccordionGroup>
+  <Accordion title="Is my email data secure?">
+    Yes. GAIA uses OAuth for secure authentication and never stores your Gmail password. Your credentials are encrypted and only used to make API calls on your behalf.
+  </Accordion>
+  
+  <Accordion title="Can GAIA send emails on my behalf?">
+    Yes, but only when you explicitly ask it to. The AI agent will always confirm before sending important emails.
+  </Accordion>
+  
+  <Accordion title="Does GAIA read all my emails?">
+    GAIA only accesses emails when you specifically ask it to. It doesn't continuously monitor your inbox unless you set up a workflow trigger.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Tip>
+  Use specific search criteria to help GAIA find emails faster. Instead of "show me emails", try "show me unread emails from John about the project".
+</Tip>
+
+<Tip>
+  Create labels for automated organization. For example: "Label all emails from newsletter@* as Newsletters".
+</Tip>
+
+<Warning>
+  Be careful with bulk actions like "delete all emails from X". GAIA will usually ask for confirmation, but it's good to double-check.
+</Warning>
+
+## Related Integrations
+
+- [Google Calendar](/integrations/google-calendar) - Schedule meetings mentioned in emails
+- [Slack](/integrations/slack) - Forward important emails to Slack channels
+- [Notion](/integrations/notion) - Save email content to Notion pages
+- [Linear](/integrations/linear) - Create Linear issues from emails
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build Email Workflows" icon="diagram-project" href="/workflows/overview">
+    Automate email handling with workflows
+  </Card>
+  <Card title="Custom Email Rules" icon="code" href="/workflows/triggers">
+    Set up custom triggers for incoming emails
+  </Card>
+</CardGroup>

@@ -1,0 +1,638 @@
+---
+title: Development Commands
+description: Complete reference of all Nx commands and development workflows
+---
+
+## Overview
+
+GAIA uses Nx to manage commands across the monorepo. All commands follow the pattern `nx <target> <project>` or `nx run-many -t <target>` for multiple projects.
+
+## Quick Reference
+
+<CardGroup cols={2}>
+  <Card title="Development" icon="code">
+    Start development servers with hot reload
+  </Card>
+  <Card title="Building" icon="hammer">
+    Build projects for production
+  </Card>
+  <Card title="Quality Checks" icon="check">
+    Lint, format, and type check code
+  </Card>
+  <Card title="Testing" icon="flask">
+    Run tests and verify functionality
+  </Card>
+</CardGroup>
+
+## Setup Commands
+
+### Install Dependencies
+
+Install Node.js dependencies using pnpm:
+
+<CodeGroup>
+```bash pnpm
+pnpm install
+```
+
+```bash npm
+npm install
+```
+
+```bash yarn
+yarn install
+```
+</CodeGroup>
+
+### Sync Python Dependencies
+
+Sync Python packages for API and voice agent:
+
+<CodeGroup>
+```bash API
+nx run api:sync
+```
+
+```bash Voice Agent
+nx run voice-agent:sync
+```
+
+```bash Both
+nx run api:sync && nx run voice-agent:sync
+```
+</CodeGroup>
+
+This uses `uv` to install dependencies defined in `pyproject.toml` into isolated virtual environments.
+
+## Development Commands
+
+### Start Development Servers
+
+Run applications with hot reload:
+
+<CodeGroup>
+```bash Web App
+nx dev web
+# Runs on http://localhost:3000
+# Uses Next.js with Turbopack for fast refresh
+```
+
+```bash API Backend
+nx dev api
+# Runs on http://localhost:8000
+# FastAPI with automatic reload on file changes
+```
+
+```bash Desktop App
+nx dev desktop
+# Opens Electron window
+# Hot reload for both main and renderer processes
+```
+
+```bash Mobile App
+nx dev mobile
+# Starts Expo development server
+# Scan QR code with Expo Go app
+```
+
+```bash Voice Agent
+nx dev voice-agent
+# Starts voice processing worker
+```
+</CodeGroup>
+
+### Run Background Workers
+
+Start background task workers for async job processing:
+
+```bash
+nx worker api
+# Runs ARQ worker for Redis-based task queue
+```
+
+The worker processes background tasks like:
+- Email processing
+- Scheduled jobs
+- Long-running operations
+- Webhook deliveries
+
+## Docker Development
+
+### Start All Services
+
+Start all infrastructure services with Docker Compose:
+
+```bash
+cd infra/docker
+docker compose up
+```
+
+This starts PostgreSQL, MongoDB, Redis, ChromaDB, and RabbitMQ.
+
+### Start Specific Profiles
+
+Run only the services you need:
+
+<CodeGroup>
+```bash Backend Services
+docker compose --profile backend up
+# PostgreSQL, MongoDB, Redis, ChromaDB
+```
+
+```bash Worker Services
+docker compose --profile worker up
+# Redis, RabbitMQ
+```
+
+```bash Voice Services
+docker compose --profile voice up
+# Services needed for voice agent
+```
+</CodeGroup>
+
+### Stop Services
+
+```bash
+docker compose down
+# Stop and remove containers
+
+docker compose down -v
+# Also remove volumes (deletes all data)
+```
+
+<Warning>
+  The `-v` flag removes volumes, which will delete all data in your local databases. Use this carefully.
+</Warning>
+
+## Build Commands
+
+### Build Individual Projects
+
+Build specific projects for production:
+
+<CodeGroup>
+```bash Web App
+nx build web
+# Creates optimized Next.js production build
+# Output: apps/web/.next
+```
+
+```bash API Backend
+nx build api
+# Validates Python code (no compilation needed)
+```
+
+```bash Desktop App
+nx build desktop
+# Creates Electron distributable
+# Output: apps/desktop/dist
+```
+
+```bash Mobile App
+nx build mobile
+# Creates Expo production build
+```
+</CodeGroup>
+
+### Build Multiple Projects
+
+Build all projects in parallel:
+
+```bash
+nx run-many -t build
+# Builds all projects that have a build target
+# Runs up to 3 in parallel (configured in nx.json)
+```
+
+Build specific projects:
+
+```bash
+nx run-many -t build -p web,api
+# Only builds web and api projects
+```
+
+## Quality Commands
+
+### Linting
+
+Check code for style and quality issues:
+
+<CodeGroup>
+```bash Lint All
+nx run-many -t lint
+# Lints all projects
+```
+
+```bash Lint Specific
+nx lint web
+nx lint api
+```
+
+```bash Lint and Fix
+nx run-many -t lint:fix
+# Automatically fixes issues where possible
+```
+</CodeGroup>
+
+**Frontend linting** uses Biome (replaces ESLint + Prettier):
+```bash
+nx lint web
+# Checks JavaScript/TypeScript with Biome
+```
+
+**Backend linting** uses Ruff (extremely fast Python linter):
+```bash
+nx lint api
+# Runs: uvx ruff check .
+```
+
+### Formatting
+
+Format code according to project standards:
+
+<CodeGroup>
+```bash Format All
+nx run-many -t format
+# Formats all projects
+```
+
+```bash Format Specific
+nx format web
+nx format api
+```
+
+```bash Check Formatting
+nx run-many -t format:check
+# Checks if code is formatted correctly
+```
+</CodeGroup>
+
+**Frontend formatting** uses Biome:
+- Line width: 80 characters
+- Indentation: 2 spaces
+- Automatic import sorting
+
+**Backend formatting** uses Ruff:
+- Follows PEP 8 style guide
+- Line width: 88 characters (Black-compatible)
+- Automatic import sorting
+
+### Type Checking
+
+Verify type safety:
+
+<CodeGroup>
+```bash Type Check All
+nx run-many -t type-check
+```
+
+```bash Type Check Specific
+nx type-check web
+nx type-check api
+```
+</CodeGroup>
+
+**Frontend** uses TypeScript compiler:
+```bash
+nx type-check web
+# Runs: tsc --noEmit
+```
+
+**Backend** uses mypy:
+```bash
+nx type-check api
+# Runs: mypy app --ignore-missing-imports
+```
+
+### Run All Quality Checks
+
+Run linting, formatting, and type checking together:
+
+```bash
+nx run-many -t lint format:check type-check
+# Runs all quality checks in parallel
+```
+
+<Note>
+  Quality checks run in parallel by default (max 3 concurrent). This is configured with `"parallel": 3` in `nx.json`.
+</Note>
+
+## Testing Commands
+
+### Python Tests
+
+Run pytest tests for Python applications:
+
+```bash
+cd apps/api
+uv run pytest
+
+# With coverage
+uv run pytest --cov=app --cov-report=html
+
+# Specific test file
+uv run pytest tests/test_agents.py
+
+# With verbose output
+uv run pytest -v
+```
+
+### Frontend Tests
+
+If Jest or other test runners are configured:
+
+```bash
+nx test web
+nx test mobile
+```
+
+## Database Commands
+
+### Run Migrations
+
+Apply database schema changes:
+
+```bash
+nx run api:migrate
+# Runs database migrations
+```
+
+### Create Migration
+
+Generate a new migration file:
+
+```bash
+cd apps/api
+uv run alembic revision -m "description"
+```
+
+## Docker Commands
+
+### Build Docker Images
+
+Build production Docker images:
+
+<CodeGroup>
+```bash API Image
+nx docker:build api
+# Builds and pushes to ghcr.io
+```
+
+```bash Voice Agent Image
+nx docker:build voice-agent
+```
+
+```bash All Images
+nx run-many -t docker:build -p api,voice-agent
+```
+</CodeGroup>
+
+## Utility Commands
+
+### Clean Build Artifacts
+
+Remove generated files and caches:
+
+<CodeGroup>
+```bash Clean Specific Project
+nx clean web
+nx clean api
+```
+
+```bash Clean API Artifacts
+nx clean api
+# Removes __pycache__ and *.pyc files
+```
+</CodeGroup>
+
+### Reset Nx Cache
+
+Clear Nx cache if you encounter caching issues:
+
+```bash
+nx reset
+# Clears Nx cache and restarts daemon
+```
+
+<Note>
+  The Nx daemon is disabled in this project (`useDaemonProcess: false`), but the cache is still used for faster builds.
+</Note>
+
+### View Project Graph
+
+Visualize dependencies between projects:
+
+```bash
+nx graph
+# Opens interactive dependency graph in browser
+```
+
+See dependencies for a specific project:
+
+```bash
+nx graph --focus=web
+# Shows only web app and its dependencies
+```
+
+### View Task Graph
+
+Visualize task execution order:
+
+```bash
+nx graph --target=build
+# Shows build task dependencies
+```
+
+## Python-Specific Commands
+
+These commands work inside Python app directories:
+
+### API Development
+
+```bash
+cd apps/api
+
+# Start development server
+uv run uvicorn app.main:app --reload
+
+# Start with custom port
+uv run uvicorn app.main:app --port 8080 --reload
+
+# Run worker
+uv run arq app.worker.WorkerSettings
+
+# Lint
+uvx ruff check .
+
+# Format
+uvx ruff format .
+
+# Type check
+uv run mypy app --ignore-missing-imports
+
+# Tests
+uv run pytest
+```
+
+### Security Checks
+
+Run security audits on dependencies:
+
+```bash
+cd apps/api
+
+# Audit dependencies
+uvx pip-audit
+
+# Check for security issues
+uvx bandit -r app
+
+# Detect secrets
+uvx detect-secrets scan --all-files
+```
+
+## Workflow Examples
+
+### Starting Development
+
+Typical workflow to start developing:
+
+```bash
+# 1. Start infrastructure
+cd infra/docker && docker compose up -d
+
+# 2. Start API
+nx dev api
+
+# 3. In another terminal, start web app
+nx dev web
+
+# 4. In another terminal, start worker
+nx worker api
+```
+
+### Before Committing
+
+Run quality checks before committing:
+
+```bash
+# Check everything
+nx run-many -t lint format:check type-check
+
+# Fix issues
+nx run-many -t lint:fix format
+
+# Verify fixes
+nx run-many -t lint format:check
+```
+
+### Building for Production
+
+Prepare for production deployment:
+
+```bash
+# 1. Run quality checks
+nx run-many -t lint format:check type-check
+
+# 2. Build all projects
+nx run-many -t build
+
+# 3. Build Docker images
+nx run-many -t docker:build -p api,voice-agent
+```
+
+### Troubleshooting
+
+When things go wrong:
+
+```bash
+# Reset everything
+nx reset
+pnpm install
+nx run api:sync
+nx run voice-agent:sync
+
+# Rebuild
+nx run-many -t build
+
+# Restart Docker
+cd infra/docker
+docker compose down -v
+docker compose up -d
+```
+
+## Advanced Nx Features
+
+### Affected Commands
+
+Run commands only for affected projects:
+
+```bash
+# Lint only changed projects
+nx affected -t lint
+
+# Build only affected projects
+nx affected -t build
+
+# Compare against specific branch
+nx affected -t test --base=origin/master
+```
+
+### Parallel Execution
+
+Control how many tasks run in parallel:
+
+```bash
+# Run with max 5 parallel tasks
+nx run-many -t build --parallel=5
+
+# Run sequentially
+nx run-many -t build --parallel=1
+```
+
+### Output Options
+
+Control command output:
+
+```bash
+# Minimal output
+nx run-many -t build --output-style=compact
+
+# Stream output
+nx run-many -t build --output-style=stream
+
+# Static output (default)
+nx run-many -t build --output-style=static
+```
+
+### Skip Cache
+
+Force re-execution without cache:
+
+```bash
+nx build web --skip-nx-cache
+```
+
+## Environment Variables
+
+Some commands respect environment variables:
+
+```bash
+# Development mode
+NODE_ENV=development nx dev web
+
+# Production mode
+NODE_ENV=production nx build web
+
+# Custom API URL
+NEXT_PUBLIC_API_URL=http://api.example.com nx dev web
+
+# Python debug mode
+PYTHON_ENV=development nx dev api
+```
+
+## Next Steps
+
+- Learn about the [Project Structure](/developers/project-structure)
+- Read the [Development Setup](/developers/development-setup) guide
+- Check the [Contributing Guide](https://docs.heygaia.io/developers/contributing)

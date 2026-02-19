@@ -1,0 +1,361 @@
+---
+title: Development Setup
+description: Complete guide to setting up your GAIA development environment
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+### Required Software
+
+- **Node.js** 18.x or later (20.x recommended)
+- **pnpm** 10.x or later
+- **Python** 3.11 or later
+- **uv** - Fast Python package installer ([astral.sh/uv](https://astral.sh/uv))
+- **Docker** and **Docker Compose** (for infrastructure services)
+- **Git** for version control
+
+### Optional Tools
+
+- **Nx Console** - VSCode extension for running Nx commands
+- **Biome** VSCode extension for code formatting
+- **Python** extension for VSCode
+
+## Installation Steps
+
+### Step 1: Clone the Repository
+
+Clone the GAIA repository to your local machine:
+
+<CodeGroup>
+```bash SSH
+git clone git@github.com:theexperiencecompany/gaia.git
+cd gaia
+```
+
+```bash HTTPS
+git clone https://github.com/theexperiencecompany/gaia.git
+cd gaia
+```
+</CodeGroup>
+
+### Step 2: Install Dependencies
+
+Install Node.js dependencies using pnpm:
+
+<CodeGroup>
+```bash pnpm
+pnpm install
+```
+
+```bash npm
+npm install
+```
+
+```bash yarn
+yarn install
+```
+</CodeGroup>
+
+<Note>
+  The project uses pnpm as the default package manager. If you're using npm or yarn, some scripts may need adjustment.
+</Note>
+
+### Step 3: Sync Python Dependencies
+
+Sync Python dependencies for the API and voice agent:
+
+<CodeGroup>
+```bash API
+nx run api:sync
+```
+
+```bash Voice Agent
+nx run voice-agent:sync
+```
+
+```bash Both
+nx run api:sync && nx run voice-agent:sync
+```
+</CodeGroup>
+
+This command uses `uv` to install Python packages into isolated virtual environments for each Python application.
+
+### Step 4: Configure Environment Variables
+
+Create environment files for each application:
+
+#### API Environment
+
+Copy the example environment file:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+```
+
+Edit `apps/api/.env` and configure required variables:
+
+```bash
+# Database
+POSTGRES_URL=postgresql://user:password@localhost:5432/gaia
+MONGO_URL=mongodb://localhost:27017/gaia
+REDIS_URL=redis://localhost:6379
+CHROMA_HOST=localhost
+CHROMA_PORT=8001
+
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@localhost:5672
+
+# API Keys
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+
+# Authentication
+JWT_SECRET_KEY=your_jwt_secret
+WORKOS_API_KEY=your_workos_key
+```
+
+#### Web App Environment
+
+Copy the example environment file:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Edit `apps/web/.env.local`:
+
+```bash
+# API
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+# Authentication
+NEXT_PUBLIC_WORKOS_CLIENT_ID=your_client_id
+```
+
+<Warning>
+  Never commit `.env` files to version control. They contain sensitive credentials.
+</Warning>
+
+### Step 5: Start Infrastructure Services
+
+Start the required infrastructure services using Docker Compose:
+
+```bash
+cd infra/docker
+docker compose up -d
+```
+
+This starts:
+- PostgreSQL on port 5432
+- MongoDB on port 27017
+- Redis on port 6379
+- ChromaDB on port 8001
+- RabbitMQ on port 5672 (management UI on 15672)
+
+To start specific profiles:
+
+<CodeGroup>
+```bash Backend Services
+docker compose --profile backend up -d
+```
+
+```bash Worker Services
+docker compose --profile worker up -d
+```
+
+```bash Voice Services
+docker compose --profile voice up -d
+```
+</CodeGroup>
+
+### Step 6: Run Database Migrations
+
+Run database migrations to set up the schema:
+
+```bash
+nx run api:migrate
+```
+
+<Note>
+  If this command doesn't exist, migrations may be handled automatically on first API startup.
+</Note>
+
+### Step 7: Start Development Servers
+
+Now you're ready to start the development servers!
+
+#### Option A: Start All Services
+
+Run multiple services in separate terminals:
+
+<CodeGroup>
+```bash Terminal 1 - API
+nx dev api
+```
+
+```bash Terminal 2 - Web
+nx dev web
+```
+
+```bash Terminal 3 - Worker
+nx worker api
+```
+</CodeGroup>
+
+#### Option B: Start Individual Services
+
+Choose the service you want to work on:
+
+<CodeGroup>
+```bash Web App
+nx dev web
+# Runs on http://localhost:3000
+```
+
+```bash API Backend
+nx dev api
+# Runs on http://localhost:8000
+```
+
+```bash Desktop App
+nx dev desktop
+# Opens Electron window
+```
+
+```bash Mobile App
+nx dev mobile
+# Starts Expo dev server
+```
+
+```bash Voice Agent
+nx dev voice-agent
+# Starts voice processing worker
+```
+</CodeGroup>
+
+## Verify Installation
+
+Check that everything is working:
+
+### 1. Check API Health
+
+Visit [http://localhost:8000/health](http://localhost:8000/health) - should return `{"status":"healthy"}`
+
+### 2. Check API Documentation
+
+Visit [http://localhost:8000/docs](http://localhost:8000/docs) - should show FastAPI Swagger UI
+
+### 3. Check Web App
+
+Visit [http://localhost:3000](http://localhost:3000) - should show GAIA web interface
+
+### 4. Check Docker Services
+
+```bash
+docker compose ps
+```
+
+All services should show as "running" or "healthy".
+
+## Common Issues
+
+### Python Dependencies Not Resolving
+
+If you encounter Python dependency issues:
+
+```bash
+nx run api:sync
+nx run voice-agent:sync
+```
+
+### Port Already in Use
+
+If you see port conflict errors:
+
+```bash
+# Find process using port 3000
+lsof -ti:3000 | xargs kill -9
+
+# Find process using port 8000
+lsof -ti:8000 | xargs kill -9
+```
+
+### Docker Services Won't Start
+
+Reset Docker services:
+
+```bash
+cd infra/docker
+docker compose down -v
+docker compose up -d
+```
+
+<Warning>
+  The `-v` flag removes volumes. This will delete all data in your local databases.
+</Warning>
+
+### Nx Daemon Issues
+
+The Nx daemon is disabled in this project (`useDaemonProcess: false` in `nx.json`). If you experience caching issues:
+
+```bash
+nx reset
+```
+
+### Build Artifacts Issues
+
+Clean build artifacts for a specific project:
+
+```bash
+nx clean web
+nx clean api
+```
+
+## IDE Setup
+
+### Visual Studio Code
+
+Recommended extensions:
+
+1. **Nx Console** - Run Nx commands with a GUI
+2. **Biome** - JavaScript/TypeScript linting and formatting
+3. **Python** - Python language support
+4. **Pylance** - Fast Python language server
+5. **Docker** - Docker container management
+
+### Workspace Settings
+
+The repository includes VSCode workspace settings in `.vscode/settings.json` that configure:
+
+- Biome as the default formatter for JS/TS
+- Ruff as the Python formatter
+- Auto-format on save
+- Import organization
+
+## Development Workflow
+
+Once your environment is set up:
+
+1. **Create a feature branch** from `master`
+2. **Make your changes** following the [project structure](/developers/project-structure)
+3. **Run quality checks** (see [commands](/developers/commands))
+4. **Test your changes** locally
+5. **Create a pull request** with a clear description
+
+See the [Contributing Guide](https://docs.heygaia.io/developers/contributing) for detailed workflow information.
+
+## Next Steps
+
+- Learn about the [Project Structure](/developers/project-structure)
+- Explore available [Development Commands](/developers/commands)
+- Read the [Contributing Guide](https://docs.heygaia.io/developers/contributing)
+
+## Need Help?
+
+If you run into issues:
+
+- Check the [GitHub Issues](https://github.com/theexperiencecompany/gaia/issues)
+- Ask in [Discord](https://discord.heygaia.io)
+- Email the team at contact@heygaia.io

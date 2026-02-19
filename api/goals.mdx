@@ -1,0 +1,224 @@
+---
+title: 'Goals API'
+description: 'Track goals with AI-generated roadmaps and progress tracking'
+---
+
+# Goals API
+
+The Goals API enables goal tracking with AI-generated roadmaps, progress tracking, and milestone management.
+
+## Goal Object
+
+<ResponseField name="id" type="string">
+  Unique goal identifier
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Goal title
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Goal description (optional)
+</ResponseField>
+
+<ResponseField name="target_date" type="string">
+  Target completion date (ISO 8601)
+</ResponseField>
+
+<ResponseField name="roadmap" type="object">
+  AI-generated roadmap with nodes and edges
+</ResponseField>
+
+<ResponseField name="progress" type="number">
+  Completion percentage (0-100)
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Goal status: `active`, `completed`, `abandoned`
+</ResponseField>
+
+## Endpoints
+
+### Create Goal
+
+Create a new goal.
+
+```bash
+POST /api/v1/goals
+```
+
+```json Request
+{
+  "title": "Learn Machine Learning",
+  "description": "Master ML fundamentals and build 3 projects",
+  "target_date": "2026-12-31T00:00:00Z"
+}
+```
+
+```json Response
+{
+  "id": "goal_123",
+  "title": "Learn Machine Learning",
+  "description": "Master ML fundamentals and build 3 projects",
+  "target_date": "2026-12-31T00:00:00Z",
+  "roadmap": null,
+  "progress": 0,
+  "status": "active",
+  "created_at": "2026-02-19T10:00:00Z",
+  "updated_at": "2026-02-19T10:00:00Z"
+}
+```
+
+### List Goals
+
+Get all goals for the current user.
+
+```bash
+GET /api/v1/goals
+```
+
+```json Response
+[
+  {
+    "id": "goal_123",
+    "title": "Learn Machine Learning",
+    "description": "Master ML fundamentals",
+    "target_date": "2026-12-31T00:00:00Z",
+    "progress": 25,
+    "status": "active",
+    "created_at": "2026-02-19T10:00:00Z"
+  }
+]
+```
+
+### Get Goal
+
+Get a specific goal with roadmap.
+
+```bash
+GET /api/v1/goals/{goal_id}
+```
+
+```json Response
+{
+  "id": "goal_123",
+  "title": "Learn Machine Learning",
+  "roadmap": {
+    "nodes": [
+      {
+        "id": "node_1",
+        "label": "Complete Python basics",
+        "completed": true,
+        "position": {"x": 100, "y": 100}
+      },
+      {
+        "id": "node_2",
+        "label": "Study linear algebra",
+        "completed": false,
+        "position": {"x": 200, "y": 100}
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_1",
+        "source": "node_1",
+        "target": "node_2"
+      }
+    ]
+  },
+  "progress": 25
+}
+```
+
+### Delete Goal
+
+Delete a goal.
+
+```bash
+DELETE /api/v1/goals/{goal_id}
+```
+
+## Roadmap Management
+
+### Generate Roadmap (WebSocket)
+
+Generate AI roadmap via WebSocket for real-time streaming.
+
+```javascript
+const ws = new WebSocket('wss://api.heygaia.io/api/v1/ws/roadmap');
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    goal_id: 'goal_123',
+    goal_title: 'Learn Machine Learning'
+  }));
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  if (data.status) {
+    console.log('Progress:', data.status);
+  }
+  
+  if (data.roadmap) {
+    console.log('Roadmap generated:', data.roadmap);
+  }
+  
+  if (data.success) {
+    console.log('Goal updated successfully');
+    ws.close();
+  }
+};
+```
+
+### Update Node Status
+
+Mark a roadmap node as completed.
+
+```bash
+PATCH /api/v1/goals/{goal_id}/roadmap/nodes/{node_id}
+```
+
+```json Request
+{
+  "completed": true
+}
+```
+
+```json Response
+{
+  "id": "goal_123",
+  "progress": 50,
+  "roadmap": {
+    "nodes": [...]
+  }
+}
+```
+
+## Progress Tracking
+
+Progress is automatically calculated based on completed roadmap nodes:
+
+- Each node contributes equally to overall progress
+- Completing a node updates the goal's progress percentage
+- Progress syncs with linked todos if applicable
+
+## Todo Integration
+
+Goals can be linked to todos for task management:
+
+- Roadmap nodes can be converted to todos
+- Todo completion syncs with goal progress
+- Subtasks map to roadmap milestones
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Memory API" icon="brain" href="/api/memory">
+    Store contextual memories
+  </Card>
+  <Card title="Integrations" icon="plug" href="/api/integrations">
+    Connect third-party services
+  </Card>
+</CardGroup>

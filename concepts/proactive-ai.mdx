@@ -1,0 +1,282 @@
+---
+title: "Proactive AI"
+description: "Understanding GAIA's proactive intelligence system that anticipates needs and takes autonomous actions"
+---
+
+# Proactive AI
+
+GAIA is fundamentally different from traditional AI assistants. Instead of waiting for explicit commands, GAIA actively monitors your digital environment, learns from your patterns, and takes autonomous actions to help you stay ahead.
+
+## What is Proactive AI?
+
+Proactive AI represents a paradigm shift from reactive to anticipatory assistance. GAIA doesn't just respond to questions—it:
+
+- **Monitors** your integrations for relevant events
+- **Anticipates** your needs based on context and patterns
+- **Acts** autonomously when appropriate
+- **Learns** from every interaction to improve over time
+
+<Note>
+Traditional AI: "What do you want me to do?"  
+Proactive AI: "I noticed X happening, so I did Y for you."
+</Note>
+
+## Core Capabilities
+
+### 1. Event-Driven Intelligence
+
+GAIA continuously monitors your connected services for meaningful events:
+
+```python
+# Example: Email trigger detection (apps/api/app/agents/prompts/trigger_prompts.py)
+# When an important email arrives, GAIA can:
+# - Analyze the sender and context
+# - Extract action items
+# - Create calendar events
+# - Draft responses
+# - Update your todo list
+```
+
+**Supported Trigger Sources:**
+- Gmail (new emails, labeled emails, matching filters)
+- Google Calendar (event starts, event created, event updated)
+- GitHub (PRs, issues, commits)
+- Slack (messages, mentions, channels)
+- LinkedIn (messages, connection requests)
+- And 100+ more integrations via Composio
+
+### 2. Context-Aware Actions
+
+GAIA understands the full context of your work:
+
+<CodeGroup>
+```python Email Context
+# From: apps/api/app/agents/prompts/workflow_prompts.py:358-440
+
+# GAIA receives complete email context:
+- From: sender@example.com
+- Subject: "Urgent: Client Meeting Tomorrow"
+- Content: Full email body with attachments
+- Received: Timestamp
+
+# And intelligently decides:
+# - Should I create a calendar event?
+# - Do I need to search for background info?
+# - Should I draft a response?
+# - Any todo items to create?
+```
+
+```typescript Follow-up Actions
+// From: apps/api/app/agents/core/nodes/follow_up_actions_node.py:36-134
+
+// After every interaction, GAIA suggests next steps:
+interface FollowUpActions {
+  actions: string[]; // 3-4 contextual suggestions
+}
+
+// Examples:
+// - "Search emails from this client"
+// - "Create a reminder for follow-up"
+// - "Add to next week's agenda"
+// - "Draft a response email"
+```
+</CodeGroup>
+
+### 3. Autonomous Decision Making
+
+GAIA can operate with varying levels of autonomy:
+
+<Accordion title="Autonomy Levels">
+  <AccordionItem title="Supervised Mode">
+    GAIA suggests actions and waits for approval before executing.
+    
+    **Example:** "I found 3 important emails. Should I create calendar events for the meetings mentioned?"
+  </AccordionItem>
+  
+  <AccordionItem title="Semi-Autonomous Mode">
+    GAIA takes simple, reversible actions automatically but asks for confirmation on complex decisions.
+    
+    **Example:** GAIA automatically categorizes emails but asks before scheduling meetings.
+  </AccordionItem>
+  
+  <AccordionItem title="Fully Autonomous Mode">
+    GAIA operates independently within defined boundaries and policies.
+    
+    **Example:** GAIA automatically handles routine emails, schedules standard meetings, and manages your calendar based on learned preferences.
+  </AccordionItem>
+</Accordion>
+
+## Intelligent Workflow Execution
+
+GAIA's most powerful proactive feature is automated workflow execution. See [Workflows](/concepts/workflows) for details.
+
+### Trigger-Based Automation
+
+```python
+# From: apps/api/app/models/workflow_models.py:18-30
+
+class TriggerType(str, Enum):
+    MANUAL = "manual"      # User-initiated
+    SCHEDULE = "schedule"  # Cron-based timing
+    INTEGRATION = "integration"  # Event-driven from connected apps
+```
+
+**Real-World Example:**
+
+<Steps>
+  <Step title="Event Detection">
+    New email arrives from client with subject containing "proposal"
+  </Step>
+  <Step title="Context Analysis">
+    GAIA reads email, identifies key information, and checks memory for client history
+  </Step>
+  <Step title="Autonomous Action">
+    GAIA executes predefined workflow:
+    - Searches past emails for context
+    - Creates calendar event for proposal review
+    - Drafts acknowledgment email
+    - Adds follow-up reminder
+  </Step>
+  <Step title="User Notification">
+    Summary notification: "Processed proposal from ClientX, scheduled review for Tuesday 2pm"
+  </Step>
+</Steps>
+
+## Learning System
+
+GAIA continuously improves through two learning mechanisms:
+
+### Skill Learning
+
+```python
+# From: apps/api/app/agents/memory/skill_learning/service.py:73-90
+
+# GAIA learns procedural knowledge:
+class Skill:
+    trigger: str           # "When user asks to schedule a meeting"
+    procedure: str         # "First check calendar, then search emails for context"
+    tools_used: List[str]  # ["GOOGLE_CALENDAR_LIST_EVENTS", "GMAIL_SEARCH_MESSAGES"]
+    what_worked: str       # "Checking calendar first prevents double-booking"
+    gotchas: str           # "Always confirm timezone with user"
+    optimal_approach: str  # "Use 'find_time' to automatically suggest slots"
+```
+
+**Learning Sources:**
+1. **LLM Extraction** - Analyzing successful conversations
+2. **Self-Reflection** - The executing LLM documents its own experience
+
+### User Memory
+
+GAIA maintains a knowledge graph of your preferences, contacts, and patterns:
+
+```python
+# Stored in mem0 with graph structure
+- "User prefers morning meetings"
+- "ClientX's CEO is Sarah Johnson (sarah@clientx.com)"
+- "Project deadlines are always Friday EOD"
+- "User doesn't work Wednesdays"
+```
+
+See [Memory System](/concepts/memory-system) for detailed architecture.
+
+## Proactive Notifications
+
+<Info>
+GAIA sends intelligent notifications through multiple channels based on urgency and user preferences.
+</Info>
+
+**Notification Channels:**
+- In-app notifications (real-time updates)
+- Email summaries (daily digests)
+- Desktop notifications (important events)
+- Mobile push notifications (urgent items)
+
+**Intelligence Features:**
+- **Priority Detection**: Not all events deserve interruption
+- **Batch Summarization**: Group related notifications
+- **Timing Optimization**: Deliver during focus hours or breaks
+- **Action Shortcuts**: One-tap to approve/dismiss/snooze
+
+## Privacy & Control
+
+<Warning>
+Proactive AI requires access to your data, but you maintain complete control.
+</Warning>
+
+**Privacy Guarantees:**
+- All data processing happens in your account
+- No data shared between users
+- You can pause/resume proactivity anytime
+- Full audit logs of all autonomous actions
+- Granular permissions per integration
+
+**User Controls:**
+```typescript
+// Settings for proactive behavior
+interface ProactivitySettings {
+  enabled: boolean;                  // Master switch
+  autonomyLevel: "low" | "medium" | "high";
+  quietHours: { start: string; end: string; };
+  allowedIntegrations: string[];     // Which apps to monitor
+  autoApproveCategories: string[];   // Categories that don't need approval
+}
+```
+
+## Technical Implementation
+
+### Agent Architecture
+
+```python
+# From: apps/api/app/agents/core/agent.py:38-114
+
+async def _core_agent_logic(
+    request: MessageRequestWithHistory,
+    conversation_id: str,
+    user: dict,
+    user_time: datetime,
+    trigger_context: Optional[dict] = None,  # Key for proactive execution
+):
+    # Build context with trigger data
+    # Execute graph with full awareness
+    # Store learnings for future improvement
+```
+
+### Execution Modes
+
+**Streaming Mode** (`call_agent`):
+- Real-time user interactions
+- Immediate feedback
+- SSE-based communication
+
+**Silent Mode** (`call_agent_silent`):
+- Background workflow execution
+- Batch processing
+- API integrations
+
+See source: `apps/api/app/agents/core/agent.py:117-193`
+
+## Best Practices
+
+<Tip>
+Start with supervised mode and gradually increase autonomy as GAIA learns your preferences.
+</Tip>
+
+1. **Define Clear Boundaries**: Set up workflows for predictable scenarios first
+2. **Monitor & Adjust**: Review autonomous actions regularly
+3. **Provide Feedback**: Correct GAIA when it misinterprets context
+4. **Use Constraints**: Set policies for when NOT to act autonomously
+5. **Test Incrementally**: Enable one proactive feature at a time
+
+## Related Concepts
+
+- [Workflows](/concepts/workflows) - Automated action sequences
+- [Memory System](/concepts/memory-system) - How GAIA remembers and learns
+- [Integrations](/concepts/integrations) - Connecting your digital ecosystem
+- [Agents](/concepts/agents) - Specialized AI workers for different tasks
+
+---
+
+**Next Steps:**
+- [Create your first automated workflow →](/concepts/workflows)
+- [Explore available integrations →](/concepts/integrations)
+- [Understand the memory system →](/concepts/memory-system)

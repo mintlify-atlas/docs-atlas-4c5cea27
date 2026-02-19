@@ -1,0 +1,561 @@
+---
+title: Pull Request Guidelines
+description: Requirements and best practices for submitting pull requests to GAIA
+---
+
+Pull requests (PRs) are the primary way to contribute code changes to GAIA. This guide covers requirements, best practices, and the review process.
+
+## Before Creating a PR
+
+<Steps>
+  <Step title="Ensure tests pass locally">
+    ```bash
+    # Run all tests
+    nx run-many -t test
+
+    # Python tests
+    cd apps/api && uv run pytest
+    ```
+  </Step>
+
+  <Step title="Verify code style">
+    ```bash
+    # Lint
+    nx run-many -t lint
+
+    # Format
+    nx run-many -t format
+
+    # Type check
+    nx run-many -t type-check
+    ```
+  </Step>
+
+  <Step title="Update documentation">
+    Document new features, API changes, and breaking changes.
+  </Step>
+
+  <Step title="Check for merge conflicts">
+    ```bash
+    git fetch origin
+    git merge origin/master
+    ```
+  </Step>
+</Steps>
+
+## PR Title Requirements
+
+PR titles **must** follow [Conventional Commits](/developers/conventional-commits) format:
+
+```
+<type>(<scope>): <description>
+```
+
+### Allowed Types
+
+From `.github/workflows/pr-naming-conventions.yml`:
+
+- `feat` - New features
+- `fix` - Bug fixes
+- `docs` - Documentation changes
+- `style` - Code style changes (formatting, etc.)
+- `refactor` - Code refactoring
+- `test` - Adding or updating tests
+- `chore` - Maintenance tasks
+- `ci` - CI/CD changes
+- `build` - Build system changes
+- `revert` - Reverting changes
+- `perf` - Performance improvements
+- `release` - Release commits
+- `deps` - Dependency updates
+- `infra` - Infrastructure changes
+- `security` - Security fixes
+- `env` - Environment configuration
+- `i18n` - Internationalization
+- `ux` - User experience improvements
+- `config` - Configuration changes
+- `assets` - Asset updates
+- `meta` - Meta changes
+
+### Examples
+
+```
+feat(agents): add weather forecast tool
+fix(api): resolve todo creation race condition
+docs: update agent development guide
+refactor(tools): simplify tool registry logic
+perf(api): optimize database queries
+test(agents): add integration tests for comms agent
+ci: add code coverage reporting
+```
+
+<Warning>
+**PR Title Validation**:
+PRs with invalid titles will fail automated checks. The title is validated on every push using GitHub Actions.
+</Warning>
+
+## PR Description Template
+
+Use this template for comprehensive PR descriptions:
+
+```markdown
+## Description
+
+Brief description of what this PR does and why.
+
+## Type of Change
+
+- [ ] Bug fix (non-breaking change that fixes an issue)
+- [ ] New feature (non-breaking change that adds functionality)
+- [ ] Breaking change (fix or feature that breaks existing functionality)
+- [ ] Documentation update
+- [ ] Performance improvement
+- [ ] Code refactoring
+- [ ] Testing improvements
+
+## Changes Made
+
+- Change 1: Brief description
+- Change 2: Brief description
+- Change 3: Brief description
+
+## Motivation and Context
+
+Why is this change needed? What problem does it solve?
+
+## How Has This Been Tested?
+
+Describe the tests you ran and how to reproduce them:
+
+1. Test scenario 1
+2. Test scenario 2
+3. Test scenario 3
+
+## Screenshots (if applicable)
+
+![Description](url-to-screenshot)
+
+## Breaking Changes
+
+<!-- If this PR contains breaking changes, describe them here -->
+
+None
+
+## Migration Guide
+
+<!-- If users need to change their code, provide migration steps -->
+
+N/A
+
+## Checklist
+
+- [ ] My code follows the code style guidelines
+- [ ] I have performed a self-review of my code
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] I have made corresponding changes to the documentation
+- [ ] My changes generate no new warnings
+- [ ] I have added tests that prove my fix is effective or feature works
+- [ ] New and existing unit tests pass locally with my changes
+- [ ] Any dependent changes have been merged and published
+- [ ] I have checked my code and corrected any misspellings
+
+## Related Issues
+
+Closes #123
+References #456, #789
+```
+
+## PR Requirements
+
+### Code Quality
+
+<AccordionGroup>
+  <Accordion title="All Tests Pass">
+    - Unit tests must pass
+    - Integration tests must pass
+    - No test coverage regression
+    - New functionality includes tests
+
+    ```bash
+    # Verify locally
+    cd apps/api && uv run pytest --cov=app
+    ```
+  </Accordion>
+
+  <Accordion title="Linting and Formatting">
+    - Code passes Biome checks (TypeScript)
+    - Code passes Ruff checks (Python)
+    - Type checking passes (mypy)
+    - Pre-commit hooks pass
+
+    ```bash
+    # Verify locally
+    nx run-many -t lint format type-check
+    ```
+  </Accordion>
+
+  <Accordion title="No Merge Conflicts">
+    - PR must be up to date with `master`
+    - No conflicting files
+    - Clean merge possible
+
+    ```bash
+    # Update branch
+    git fetch origin
+    git rebase origin/master
+    ```
+  </Accordion>
+
+  <Accordion title="Documentation Updated">
+    - New features documented
+    - API changes documented
+    - Breaking changes documented
+    - Migration guides provided
+  </Accordion>
+</AccordionGroup>
+
+### Code Review
+
+<CardGroup cols={2}>
+  <Card title="Focused Changes" icon="bullseye">
+    PRs should be focused on a single change or feature. Split large changes into multiple PRs.
+  </Card>
+  <Card title="Clear Description" icon="file-lines">
+    Provide context, motivation, and testing information in the PR description.
+  </Card>
+  <Card title="Review Responsiveness" icon="comments">
+    Respond to review comments promptly and address all feedback.
+  </Card>
+  <Card title="Maintainable Code" icon="code">
+    Follow project conventions and write self-documenting code.
+  </Card>
+</CardGroup>
+
+## CI/CD Checks
+
+Automated checks run on every PR:
+
+### GitHub Actions Workflows
+
+1. **Build Workflow** (`.github/workflows/build.yml`)
+   - Install dependencies
+   - Run linting
+   - Run type checking
+   - Build all projects
+   - Run tests
+
+2. **PR Title Validation** (`.github/workflows/pr-naming-conventions.yml`)
+   - Validates conventional commit format
+   - Checks allowed types
+   - Enforces consistent naming
+
+<Warning>
+**All checks must pass** before a PR can be merged. Fix any failing checks before requesting review.
+</Warning>
+
+## Review Process
+
+<Steps>
+  <Step title="Automated Checks">
+    GitHub Actions runs tests, linting, and builds automatically.
+  </Step>
+
+  <Step title="Initial Review">
+    Maintainers review code quality, design, and test coverage.
+  </Step>
+
+  <Step title="Feedback">
+    Reviewers provide comments, suggestions, and requested changes.
+  </Step>
+
+  <Step title="Updates">
+    Address feedback by pushing new commits to the same branch.
+  </Step>
+
+  <Step title="Re-review">
+    Maintainers verify changes and may request additional updates.
+  </Step>
+
+  <Step title="Approval">
+    Once approved by required reviewers, PR can be merged.
+  </Step>
+
+  <Step title="Merge">
+    Maintainers merge the PR into `master` branch.
+  </Step>
+</Steps>
+
+### Review Timeline
+
+- **Initial review**: 2-3 business days
+- **Follow-up reviews**: 1-2 business days
+- **Urgent fixes**: Same day for critical issues
+
+### Reviewer Feedback
+
+Reviewers may:
+
+- **Comment**: Suggestions or questions (no action required)
+- **Request changes**: Must be addressed before approval
+- **Approve**: PR is ready to merge
+
+## Responding to Feedback
+
+### Making Changes
+
+```bash
+# Make requested changes
+vim apps/api/app/agents/tools/my_tool.py
+
+# Commit changes
+git add .
+git commit -m "refactor: address review feedback
+
+- Improve error handling
+- Add input validation
+- Update tests"
+
+# Push to update PR
+git push origin feat/my-feature
+```
+
+### Resolving Conversations
+
+- Address each comment
+- Reply to explain changes
+- Mark conversations as resolved
+- Request re-review when ready
+
+### Disagreements
+
+If you disagree with feedback:
+
+1. Explain your reasoning politely
+2. Provide technical justification
+3. Suggest alternatives
+4. Be open to compromise
+5. Escalate to maintainer if needed
+
+## Common PR Issues
+
+<AccordionGroup>
+  <Accordion title="Failing Tests">
+    **Problem**: Tests fail in CI but pass locally
+
+    **Solutions**:
+    - Check for environment-specific issues
+    - Verify test data and fixtures
+    - Look at CI logs for error details
+    - Run tests with same Python/Node version as CI
+  </Accordion>
+
+  <Accordion title="Merge Conflicts">
+    **Problem**: PR has merge conflicts with master
+
+    **Solutions**:
+    ```bash
+    # Update from master
+    git fetch origin
+    git rebase origin/master
+
+    # Resolve conflicts
+    # Edit conflicting files
+    git add .
+    git rebase --continue
+
+    # Force push (your branch only!)
+    git push --force-with-lease
+    ```
+  </Accordion>
+
+  <Accordion title="Linting Failures">
+    **Problem**: Code doesn't pass linting checks
+
+    **Solutions**:
+    ```bash
+    # Auto-fix TypeScript issues
+    nx lint web --fix
+
+    # Auto-fix Python issues
+    nx lint api --fix
+    nx format api
+
+    # Commit fixes
+    git add .
+    git commit -m "style: fix linting issues"
+    git push
+    ```
+  </Accordion>
+
+  <Accordion title="Type Errors">
+    **Problem**: TypeScript or mypy reports type errors
+
+    **Solutions**:
+    ```bash
+    # Check TypeScript types
+    nx type-check web
+
+    # Check Python types
+    nx type-check api
+
+    # Fix type errors in code
+    # Never use 'any' or '# type: ignore'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+### PR Size
+
+<CardGroup cols={2}>
+  <Card title="Small PRs" icon="thumbs-up">
+    - Easier to review
+    - Faster to merge
+    - Less likely to have conflicts
+    - Easier to test
+  </Card>
+  <Card title="Large PRs" icon="thumbs-down">
+    - Harder to review
+    - More likely to have issues
+    - Takes longer to merge
+    - Higher risk of conflicts
+  </Card>
+</CardGroup>
+
+**Recommended sizes**:
+- Small: Less than 200 lines changed
+- Medium: 200-500 lines
+- Large: 500-1000 lines (consider splitting)
+- Very large: More than 1000 lines (definitely split)
+
+### Commit Organization
+
+Organize commits logically:
+
+```bash
+# Good: Logical commits
+git log --oneline
+feat(agents): add weather forecast tool
+test(agents): add tests for weather tool
+docs: update weather tool documentation
+
+# Bad: Random commits
+git log --oneline
+fix typo
+add stuff
+more changes
+oops
+actually working now
+```
+
+### Self Review
+
+Before requesting review:
+
+1. Review your own diff on GitHub
+2. Check for:
+   - Debug code or console.logs
+   - TODO comments
+   - Commented-out code
+   - Sensitive information
+   - Unnecessary changes
+3. Test locally one more time
+4. Verify documentation is updated
+
+## PR Examples
+
+### Good PR Example
+
+```
+Title: feat(agents): add 5-day weather forecast support
+
+Description:
+Adds extended weather forecast capability to the weather tool,
+allowing users to see conditions for the next 5 days.
+
+Changes:
+- Extended weather API integration
+- Added forecast data structures
+- Updated weather tool to handle multi-day forecasts
+- Added tests for forecast parsing
+- Updated documentation with examples
+
+Testing:
+- Unit tests for forecast data parsing
+- Integration test with mock API responses
+- Manual testing with real API
+
+Closes #234
+```
+
+### Bad PR Example
+
+```
+Title: updates
+
+Description:
+Made some changes to the code.
+
+Changes:
+- Fixed stuff
+- Updated things
+```
+
+## After Merge
+
+Once your PR is merged:
+
+1. **Delete your branch**
+   ```bash
+   git branch -d feat/my-feature
+   git push origin --delete feat/my-feature
+   ```
+
+2. **Update local master**
+   ```bash
+   git checkout master
+   git pull origin master
+   ```
+
+3. **Monitor for issues**
+   - Watch for CI/CD pipeline
+   - Check for related issues
+   - Be available for questions
+
+4. **Celebrate!**
+   - Your contribution is now part of GAIA
+   - Thank reviewers for their time
+
+## Getting Help
+
+If you need help with your PR:
+
+<CardGroup cols={2}>
+  <Card title="Discord" icon="discord" href="https://discord.heygaia.io/">
+    Ask questions in #contributors channel
+  </Card>
+  <Card title="GitHub Discussions" icon="github" href="https://github.com/theexperiencecompany/gaia/discussions">
+    Start a discussion thread
+  </Card>
+  <Card title="PR Comments" icon="comment">
+    Comment on your PR with questions
+  </Card>
+  <Card title="Documentation" icon="book" href="/developers/contributing">
+    Review contribution guidelines
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Contributing" icon="code-pull-request" href="/developers/contributing">
+    Full contribution workflow
+  </Card>
+  <Card title="Conventional Commits" icon="git-alt" href="/developers/conventional-commits">
+    Commit message format
+  </Card>
+  <Card title="Code Style" icon="paintbrush" href="/developers/code-style">
+    Code formatting guidelines
+  </Card>
+</CardGroup>

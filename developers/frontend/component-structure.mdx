@@ -1,0 +1,631 @@
+---
+title: "Component Structure"
+description: "Understand GAIA's feature-based component architecture and organization patterns"
+---
+
+## Overview
+
+GAIA follows a feature-based architecture where components are organized by functionality rather than type. This approach improves maintainability, makes code easier to find, and naturally encourages encapsulation.
+
+## Architecture Philosophy
+
+<CardGroup cols={2}>
+  <Card title="Feature-Based" icon="folder-tree">
+    Organize by feature, not by file type
+  </Card>
+  <Card title="Colocation" icon="layer-group">
+    Keep related code together
+  </Card>
+  <Card title="Encapsulation" icon="lock">
+    Feature boundaries prevent tight coupling
+  </Card>
+  <Card title="Reusability" icon="recycle">
+    Shared components in dedicated folder
+  </Card>
+</CardGroup>
+
+## Directory Structure
+
+```bash
+src/
+├── features/              # Feature modules
+│   ├── chat/
+│   │   ├── components/    # Chat-specific components
+│   │   ├── hooks/         # Chat-specific hooks
+│   │   ├── api/           # Chat API calls
+│   │   ├── types/         # Chat type definitions
+│   │   ├── utils/         # Chat utility functions
+│   │   └── stores/        # Chat-specific stores (optional)
+│   ├── todo/
+│   ├── calendar/
+│   ├── workflows/
+│   └── integrations/
+├── components/            # Shared/reusable components
+│   ├── ui/               # Base UI components
+│   ├── layout/           # Layout components
+│   └── common/           # Common components
+├── stores/               # Global stores
+├── lib/                  # Shared utilities
+├── hooks/                # Shared hooks
+└── types/                # Global type definitions
+```
+
+## Feature Structure
+
+A typical feature follows this structure:
+
+### Chat Feature Example
+
+```bash
+features/chat/
+├── components/
+│   ├── bubbles/
+│   │   ├── bot/
+│   │   │   ├── ChatBubbleBot.tsx
+│   │   │   ├── TextBubble.tsx
+│   │   │   ├── ImageBubble.tsx
+│   │   │   └── FollowUpActions.tsx
+│   │   └── user/
+│   │       └── ChatBubbleUser.tsx
+│   ├── ChatComposer.tsx
+│   ├── ChatList.tsx
+│   ├── ConversationList.tsx
+│   └── MessageRenderer.tsx
+├── hooks/
+│   ├── useChat.ts
+│   ├── useMessages.ts
+│   ├── useStreamingMessage.ts
+│   └── useLoading.ts
+├── api/
+│   ├── chatApi.ts
+│   ├── modelsApi.ts
+│   └── toolsApi.ts
+├── types/
+│   └── index.ts
+├── utils/
+│   ├── messageUtils.ts
+│   └── messageContentUtils.ts
+└── constants.tsx
+```
+
+## Component Patterns
+
+### Server vs Client Components
+
+Next.js 16 uses Server Components by default:
+
+<Tabs>
+  <Tab title="Server Component">
+    ```typescript
+    // No 'use client' directive = Server Component
+    // Can async fetch data directly
+    import { getConversations } from '@/features/chat/api/chatApi';
+    
+    export default async function ConversationListServer() {
+      const conversations = await getConversations();
+      
+      return (
+        <div>
+          {conversations.map((conv) => (
+            <ConversationCard key={conv.id} conversation={conv} />
+          ))}
+        </div>
+      );
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Client Component">
+    ```typescript
+    'use client';
+    
+    import { useState } from 'react';
+    import { useChatStore } from '@/stores/chatStore';
+    
+    export default function ChatComposer() {
+      const [message, setMessage] = useState('');
+      const sendMessage = useChatStore((state) => state.sendMessage);
+      
+      return (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          sendMessage(message);
+          setMessage('');
+        }}>
+          <input
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <button type="submit">Send</button>
+        </form>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Component Composition
+
+Break down complex components into smaller, focused pieces:
+
+```typescript
+// features/chat/components/bubbles/bot/ChatBubbleBot.tsx
+import { useMemo } from 'react';
+import type { ChatBubbleBotProps } from '@/types/features/chatBubbleTypes';
+
+import TextBubble from './TextBubble';
+import ImageBubble from './ImageBubble';
+import FollowUpActions from './FollowUpActions';
+import MemoryIndicator from '../memory/MemoryIndicator';
+
+export default function ChatBubbleBot(props: ChatBubbleBotProps) {
+  const {
+    text,
+    image_data,
+    memory_data,
+    follow_up_actions,
+    isLastMessage,
+  } = props;
+  
+  const renderedContent = useMemo(() => {
+    if (image_data) return <ImageBubble {...props} />;
+    return <TextBubble {...props} />;
+  }, [image_data, props]);
+  
+  return (
+    <div className="chat-bubble-bot">
+      {memory_data && <MemoryIndicator data={memory_data} />}
+      {renderedContent}
+      {isLastMessage && follow_up_actions && (
+        <FollowUpActions actions={follow_up_actions} />
+      )}
+    </div>
+  );
+}
+```
+
+Key principles:
+- **Single Responsibility**: Each component has one clear purpose
+- **Composition**: Build complex UIs from simple pieces
+- **Props Interface**: Well-defined TypeScript interfaces
+
+### Compound Components
+
+Create flexible APIs with compound components:
+
+```typescript
+// components/ui/Card.tsx
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+
+function Card({ 
+  children, 
+  className 
+}: { 
+  children: ReactNode; 
+  className?: string; 
+}) {
+  return (
+    <div className={cn('rounded-lg border bg-card shadow-sm', className)}>
+      {children}
+    </div>
+  );
+}
+
+function CardHeader({ 
+  children, 
+  className 
+}: { 
+  children: ReactNode; 
+  className?: string; 
+}) {
+  return (
+    <div className={cn('flex flex-col space-y-1.5 p-6', className)}>
+      {children}
+    </div>
+  );
+}
+
+function CardBody({ 
+  children, 
+  className 
+}: { 
+  children: ReactNode; 
+  className?: string; 
+}) {
+  return <div className={cn('p-6 pt-0', className)}>{children}</div>;
+}
+
+function CardFooter({ 
+  children, 
+  className 
+}: { 
+  children: ReactNode; 
+  className?: string; 
+}) {
+  return (
+    <div className={cn('flex items-center p-6 pt-0', className)}>
+      {children}
+    </div>
+  );
+}
+
+// Export as compound component
+Card.Header = CardHeader;
+Card.Body = CardBody;
+Card.Footer = CardFooter;
+
+export { Card };
+```
+
+Usage:
+
+```typescript
+import { Card } from '@/components/ui/Card';
+
+export function TodoCard({ todo }: { todo: Todo }) {
+  return (
+    <Card>
+      <Card.Header>
+        <h3>{todo.title}</h3>
+      </Card.Header>
+      <Card.Body>
+        <p>{todo.description}</p>
+      </Card.Body>
+      <Card.Footer>
+        <Button>Complete</Button>
+      </Card.Footer>
+    </Card>
+  );
+}
+```
+
+## Custom Hooks
+
+Encapsulate complex logic in custom hooks:
+
+### Data Fetching Hook
+
+```typescript
+// features/chat/hooks/useMessages.ts
+import { useEffect } from 'react';
+import { useChatStore } from '@/stores/chatStore';
+import { db } from '@/lib/db/chatDb';
+
+export function useMessages(conversationId: string) {
+  const messages = useChatStore((state) =>
+    state.messagesByConversation[conversationId] ?? []
+  );
+  
+  const hydrationCompleted = useChatStore(
+    (state) => state.hydrationCompleted
+  );
+  
+  useEffect(() => {
+    if (!hydrationCompleted || !conversationId) return;
+    
+    // Load messages from IndexedDB
+    db.getMessagesForConversation(conversationId).then((msgs) => {
+      useChatStore.getState().setMessagesForConversation(
+        conversationId,
+        msgs
+      );
+    });
+  }, [conversationId, hydrationCompleted]);
+  
+  return messages;
+}
+```
+
+### Streaming Hook
+
+```typescript
+// features/chat/hooks/useStreamingMessage.ts
+import { useEffect, useRef } from 'react';
+import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { useChatStore } from '@/stores/chatStore';
+
+export function useStreamingMessage(conversationId: string) {
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  const startStreaming = async (messageContent: string) => {
+    abortControllerRef.current = new AbortController();
+    
+    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/chat/${conversationId}/stream`;
+    
+    await fetchEventSource(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: messageContent }),
+      signal: abortControllerRef.current.signal,
+      
+      onmessage(event) {
+        if (event.data === '[DONE]') {
+          useChatStore.getState().setStreamingConversationId(null);
+          return;
+        }
+        
+        const data = JSON.parse(event.data);
+        useChatStore.getState().addOrUpdateMessage(data);
+      },
+      
+      onerror(err) {
+        console.error('Streaming error:', err);
+        throw err;
+      },
+    });
+  };
+  
+  const stopStreaming = () => {
+    abortControllerRef.current?.abort();
+    useChatStore.getState().setStreamingConversationId(null);
+  };
+  
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+  
+  return { startStreaming, stopStreaming };
+}
+```
+
+## Shared Components
+
+Components used across features live in `components/`:
+
+### UI Components
+
+```bash
+components/ui/
+├── Button.tsx
+├── Input.tsx
+├── Card.tsx
+├── Modal.tsx
+├── Dropdown.tsx
+└── Tooltip.tsx
+```
+
+### Layout Components
+
+```bash
+components/layout/
+├── Sidebar.tsx
+├── Header.tsx
+├── Footer.tsx
+└── MainLayout.tsx
+```
+
+### Common Components
+
+```bash
+components/common/
+├── LoadingSpinner.tsx
+├── ErrorBoundary.tsx
+├── EmptyState.tsx
+└── ConfirmDialog.tsx
+```
+
+## Type Definitions
+
+Organize types with your features:
+
+```typescript
+// features/chat/types/index.ts
+export interface IMessage {
+  id: string;
+  conversationId: string;
+  content: string;
+  role: 'user' | 'assistant';
+  createdAt: Date;
+  fileIds?: string[];
+  toolName?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface IConversation {
+  id: string;
+  title: string;
+  createdAt: Date;
+  updatedAt: Date;
+  pinned: boolean;
+  archived: boolean;
+}
+
+export interface ChatBubbleBotProps {
+  text: string;
+  loading?: boolean;
+  message_id: string;
+  image_data?: ImageData;
+  memory_data?: MemoryData;
+  follow_up_actions?: string[];
+  isLastMessage?: boolean;
+}
+```
+
+## Styling Patterns
+
+### TailwindCSS with cn Utility
+
+```typescript
+import { cn } from '@/lib/utils';
+
+function Button({
+  children,
+  variant = 'primary',
+  size = 'md',
+  className,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={cn(
+        'rounded-lg font-medium transition-colors',
+        {
+          'bg-primary text-white hover:bg-primary/90': variant === 'primary',
+          'bg-secondary text-secondary-foreground': variant === 'secondary',
+          'px-3 py-1.5 text-sm': size === 'sm',
+          'px-4 py-2 text-base': size === 'md',
+          'px-6 py-3 text-lg': size === 'lg',
+        },
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+```
+
+### CSS Modules (Legacy)
+
+```typescript
+import styles from './ChatBubble.module.css';
+
+export function ChatBubble() {
+  return <div className={styles.bubble}>...</div>;
+}
+```
+
+## Performance Optimization
+
+### Memoization
+
+```typescript
+import { memo, useMemo } from 'react';
+
+const MessageBubble = memo(function MessageBubble({ 
+  message 
+}: { 
+  message: IMessage 
+}) {
+  const formattedDate = useMemo(
+    () => formatDate(message.createdAt),
+    [message.createdAt]
+  );
+  
+  return (
+    <div>
+      <p>{message.content}</p>
+      <span>{formattedDate}</span>
+    </div>
+  );
+});
+```
+
+### Lazy Loading
+
+```typescript
+import dynamic from 'next/dynamic';
+
+const WorkflowEditor = dynamic(
+  () => import('@/features/workflows/components/WorkflowEditor'),
+  {
+    loading: () => <EditorSkeleton />,
+    ssr: false,
+  }
+);
+```
+
+### Virtual Lists
+
+```typescript
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+function MessageList({ messages }: { messages: IMessage[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+  });
+  
+  return (
+    <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map((item) => (
+          <div
+            key={item.key}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              transform: `translateY(${item.start}px)`,
+            }}
+          >
+            <MessageBubble message={messages[item.index]} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Testing Components
+
+```typescript
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ChatComposer } from './ChatComposer';
+
+describe('ChatComposer', () => {
+  it('sends message on submit', async () => {
+    const onSend = jest.fn();
+    const user = userEvent.setup();
+    
+    render(<ChatComposer onSend={onSend} />);
+    
+    const input = screen.getByRole('textbox');
+    await user.type(input, 'Hello');
+    
+    const button = screen.getByRole('button', { name: /send/i });
+    await user.click(button);
+    
+    expect(onSend).toHaveBeenCalledWith('Hello');
+  });
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Colocate Related Code" icon="folder">
+    Keep components, hooks, and utilities together by feature
+  </Card>
+  <Card title="Single Responsibility" icon="bullseye">
+    Each component should do one thing well
+  </Card>
+  <Card title="Explicit Types" icon="code">
+    Always define TypeScript interfaces for props
+  </Card>
+  <Card title="Composition Over Props" icon="layer-group">
+    Use children and composition instead of many props
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Web App" icon="browser" href="/developers/frontend/web-app">
+    Learn about Next.js architecture
+  </Card>
+  <Card title="State Management" icon="database" href="/developers/frontend/state-management">
+    Master Zustand patterns
+  </Card>
+  <Card title="Testing" icon="vial" href="/developers/testing">
+    Write component tests
+  </Card>
+  <Card title="API Integration" icon="plug" href="/developers/api/overview">
+    Connect to the backend
+  </Card>
+</CardGroup>

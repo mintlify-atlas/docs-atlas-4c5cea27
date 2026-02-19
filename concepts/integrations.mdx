@@ -1,0 +1,849 @@
+---
+title: "Integrations"
+description: "Connect GAIA to 100+ services to create your unified AI-powered workspace"
+---
+
+# Integrations
+
+GAIA becomes exponentially more powerful when connected to your digital ecosystem. With 100+ integrations spanning productivity, communication, development, and business tools, GAIA can orchestrate actions across your entire workflow.
+
+## Integration Architecture
+
+### Unified Integration Layer
+
+```python
+# From: apps/api/app/agents/tools/core/registry.py:159-283
+
+class ToolRegistry:
+    """Central registry for all integrations and their tools."""
+    
+    # Core integrations (always available)
+    _add_category("search", tools=[web_search, fetch_webpages])
+    _add_category("documents", tools=[query_file, generate_document])
+    _add_category("todos", tools=[...], require_integration=True)
+    
+    # Provider integrations (OAuth-based)
+    async def register_provider_tools(
+        toolkit_name: str,    # "gmail", "notion", "github"
+        space_name: str,      # Namespace for tool isolation
+        specific_tools: list  # Optional: load specific tools only
+    ):
+        """Load tools from Composio on-demand."""
+```
+
+<CardGroup cols={2}>
+  <Card title="Core Integrations" icon="star" color="#fbbf24">
+    Built-in tools that work without authentication
+    
+    - Web Search
+    - Document Generation
+    - Weather
+    - Code Execution
+  </Card>
+  
+  <Card title="Provider Integrations" icon="plug" color="#3b82f6">
+    OAuth-connected services with deep integration
+    
+    - Gmail, Calendar, Drive
+    - Notion, Slack, Discord
+    - GitHub, Linear, Jira
+    - Twitter, LinkedIn, Instagram
+  </Card>
+</CardGroup>
+
+## Integration Categories
+
+<Tabs>
+  <Tab title="Communication">
+    **Email:**
+    - Gmail
+    - Outlook
+    - SendGrid
+    
+    **Messaging:**
+    - Slack
+    - Discord
+    - Telegram
+    - WhatsApp
+    - Microsoft Teams
+    
+    **Social:**
+    - Twitter/X
+    - LinkedIn
+    - Instagram
+    - Reddit
+    - Mastodon
+  </Tab>
+  
+  <Tab title="Productivity">
+    **Notes & Docs:**
+    - Notion
+    - Google Docs
+    - Confluence
+    - Evernote
+    
+    **Tasks:**
+    - Todoist
+    - Asana
+    - ClickUp
+    - Monday.com
+    
+    **Calendars:**
+    - Google Calendar
+    - Outlook Calendar
+    - Apple Calendar
+    
+    **Storage:**
+    - Google Drive
+    - Dropbox
+    - OneDrive
+    - Box
+  </Tab>
+  
+  <Tab title="Development">
+    **Version Control:**
+    - GitHub
+    - GitLab
+    - Bitbucket
+    
+    **Project Management:**
+    - Linear
+    - Jira
+    - Trello
+    - Azure DevOps
+    
+    **CI/CD:**
+    - CircleCI
+    - Jenkins
+    - GitHub Actions
+    
+    **Monitoring:**
+    - Sentry
+    - DataDog
+    - New Relic
+  </Tab>
+  
+  <Tab title="Business">
+    **CRM:**
+    - HubSpot
+    - Salesforce
+    - Pipedrive
+    
+    **Analytics:**
+    - Google Analytics
+    - Mixpanel
+    - Amplitude
+    
+    **Payments:**
+    - Stripe
+    - PayPal
+    
+    **Spreadsheets:**
+    - Google Sheets
+    - Airtable
+    - Excel Online
+  </Tab>
+</Tabs>
+
+## OAuth Flow
+
+### Connection Process
+
+<Steps>
+  <Step title="Initiate Connection">
+    User clicks "Connect Gmail" in GAIA dashboard
+    
+    ```typescript
+    // From: apps/web/src/features/integrations/api/integrationsApi.ts
+    
+    const initiateOAuth = async (integrationId: string) => {
+      const response = await api.post('/integrations/oauth/initiate', {
+        integration_id: integrationId
+      });
+      
+      // Returns OAuth URL
+      window.location.href = response.oauth_url;
+    };
+    ```
+  </Step>
+  
+  <Step title="OAuth Authorization">
+    User grants permissions on provider's OAuth page (e.g., Google)
+  </Step>
+  
+  <Step title="Callback Handling">
+    ```python
+    # From: apps/api/app/utils/oauth_utils.py
+    
+    async def handle_oauth_callback(
+        integration_id: str,
+        code: str,
+        user_id: str
+    ):
+        # Exchange code for tokens
+        tokens = await composio_client.exchange_code(code)
+        
+        # Store encrypted tokens
+        await store_integration_tokens(user_id, integration_id, tokens)
+        
+        # Load integration tools
+        await tool_registry.register_provider_tools(integration_id)
+        
+        return {"status": "connected"}
+    ```
+  </Step>
+  
+  <Step title="Tool Registration">
+    Integration's tools are now available to all agents
+    
+    ```python
+    # Tools are indexed in ChromaDB for semantic search
+    await index_tools_to_store([
+      ("GMAIL_SEND_MESSAGE", "gmail"),
+      ("GMAIL_SEARCH_MESSAGES", "gmail"),
+      ("GMAIL_CREATE_LABEL", "gmail"),
+      # ... 50+ more Gmail tools
+    ])
+    ```
+  </Step>
+</Steps>
+
+## Tool Discovery & Routing
+
+### Semantic Tool Search
+
+```python
+# From: apps/api/app/agents/tools/core/retrieval.py
+
+async def retrieve_tools(
+    query: str,  # "send an email"
+    user_id: str,
+    limit: int = 5
+) -> List[BaseTool]:
+    """
+    Search for tools using semantic similarity.
+    
+    Returns tools from connected integrations only.
+    """
+    
+    # Get user's connected integrations
+    connected = await get_user_integrations(user_id)
+    
+    # Semantic search in ChromaDB
+    results = await chroma_store.search(
+        query=query,
+        filter={"integration_id": {"$in": connected}},
+        limit=limit
+    )
+    
+    # Load and return actual tool objects
+    return [load_tool(r.tool_name) for r in results]
+```
+
+<Info>
+Tool search is **context-aware**—only tools from integrations you've connected will be returned.
+</Info>
+
+### Agent Routing
+
+```python
+# From: apps/api/app/agents/core/subagents/provider_subagents.py
+
+# Integration categories are mapped to specialized subagents:
+INTEGRATION_SUBAGENTS = {
+    "gmail": "gmail_agent",           # Gmail subagent
+    "googlecalendar": "calendar_agent",
+    "notion": "notion_agent",
+    "github": "github_agent",
+    "slack": "slack_agent",
+    "twitter": "twitter_agent",
+    "linkedin": "linkedin_agent",
+    # ... and more
+}
+
+# Main agent hands off to subagent:
+handoff(
+    subagent_id="gmail_agent",
+    task="Search for emails from client@example.com"
+)
+```
+
+## Subagent Architecture
+
+### Provider-Specific Subagents
+
+Each major integration has a specialized subagent with deep expertise:
+
+```python
+# From: apps/api/app/agents/core/subagents/base_subagent.py:35-137
+
+class SubAgentFactory:
+    @staticmethod
+    async def create_provider_subagent(
+        provider: str,        # "gmail"
+        name: str,            # "gmail_agent"
+        llm: LanguageModelLike,
+        tool_space: str = "general",
+        use_direct_tools: bool = False,
+    ):
+        """
+        Creates specialized subagent with:
+        - Scoped tool access (only gmail tools)
+        - Provider-specific system prompts
+        - Own checkpointer for state management
+        - Memory learning capabilities
+        """
+```
+
+### Tool Space Isolation
+
+<Accordion title="Namespace Design">
+  <AccordionItem title="Tool Spaces">
+    Tools are organized into isolated namespaces:
+    
+    ```python
+    TOOL_SPACES = {
+      "general": ["search", "documents", "weather"],
+      "gmail": ["GMAIL_*"],  # Gmail tools only
+      "notion": ["NOTION_*"],
+      "github": ["GITHUB_*"],
+      "todos": ["create_todo", "list_todos", "update_todo"],
+      "reminders": ["create_reminder", "list_reminders"],
+    }
+    ```
+    
+    **Benefits:**
+    - Prevents tool conflicts
+    - Faster tool retrieval
+    - Clear ownership
+    - Easier debugging
+  </AccordionItem>
+  
+  <AccordionItem title="Category Routing">
+    ```python
+    # From: apps/api/app/agents/tools/core/registry.py:110-146
+    
+    class ToolCategory:
+        name: str                    # "gmail"
+        space: str                   # "gmail"
+        require_integration: bool    # True
+        integration_name: str        # "gmail"
+        is_delegated: bool           # True (has subagent)
+        tools: List[Tool]            # All Gmail tools
+    ```
+    
+    Categories map cleanly to subagents for efficient delegation.
+  </AccordionItem>
+</Accordion>
+
+## Integration Configuration
+
+### OAuth Config
+
+```python
+# From: apps/api/app/config/oauth_config.py
+
+class OAuthIntegration:
+    id: str                  # "gmail"
+    name: str                # "Gmail"
+    description: str
+    managed_by: str          # "composio" or "custom"
+    
+    # Composio configuration
+    composio_config: ComposioConfig = {
+        "toolkit": "gmail",
+        "required_scopes": ["gmail.readonly", "gmail.send"]
+    }
+    
+    # Subagent configuration
+    subagent_config: SubagentConfig = {
+        "has_subagent": True,
+        "agent_name": "gmail_agent",
+        "tool_space": "gmail",
+        "specific_tools": None  # or list of specific tools
+    }
+```
+
+### Integration Resolver
+
+```python
+# From: apps/api/app/services/integrations/integration_resolver.py
+
+class IntegrationResolver:
+    @staticmethod
+    async def resolve_integration(
+        integration_id: str,
+        user_id: str
+    ) -> IntegrationStatus:
+        """
+        Check if user has connected this integration.
+        
+        Returns:
+        - connected: bool
+        - enabled: bool
+        - tools_available: int
+        - last_synced: datetime
+        """
+```
+
+## MCP (Model Context Protocol) Support
+
+### Custom MCP Integrations
+
+<Note>
+MCP allows adding custom integrations beyond the 100+ built-in providers.
+</Note>
+
+```python
+# From: apps/api/app/agents/tools/core/registry.py:371-432
+
+async def load_user_mcp_tools(user_id: str) -> Dict[str, List[BaseTool]]:
+    """
+    Load MCP tools from user's custom integrations.
+    
+    MCP servers can be:
+    - Self-hosted APIs
+    - Custom databases
+    - Internal tools
+    - Proprietary services
+    """
+    
+    # Connect to each MCP server
+    mcp_client = await get_mcp_client(user_id)
+    all_tools = await mcp_client.get_all_connected_tools()
+    
+    # Register in tool registry
+    for integration_id, tools in all_tools.items():
+        category_name = f"mcp_{integration_id}"
+        self._add_category(
+            name=category_name,
+            tools=tools,
+            space=integration_id,
+            is_delegated=True  # Can have custom subagent
+        )
+```
+
+### MCP Tool Discovery
+
+```typescript
+// From: apps/web/src/features/integrations/hooks/useIntegrations.ts
+
+interface MCPIntegration {
+  id: string;
+  name: string;
+  server_url: string;
+  tools_count: number;
+  status: "connected" | "disconnected" | "error";
+  custom_config: Record<string, any>;
+}
+
+// Users can add custom MCP servers via UI
+const addMCPServer = async (serverUrl: string, config: any) => {
+  // Validates server, discovers tools, registers in registry
+};
+```
+
+## Integration Capabilities
+
+### User Integration Tracking
+
+```python
+# From: apps/api/app/services/integrations/user_integrations.py
+
+@cache(ttl=300)  # 5 minute cache
+async def get_user_integration_capabilities(user_id: str) -> dict:
+    """
+    Get cached summary of user's available tools.
+    
+    Returns:
+    {
+      "connected_integrations": ["gmail", "notion", "github"],
+      "tool_count": 150,
+      "tool_names": ["GMAIL_SEND_MESSAGE", ...],
+      "categories": ["email", "notes", "development"],
+      "has_subagents": ["gmail_agent", "notion_agent"]
+    }
+    """
+```
+
+This is used for:
+- Follow-up action suggestions
+- Tool discovery optimization
+- UI filtering
+- Permission checks
+
+## Webhook Management
+
+### Event Triggers
+
+```python
+# From: apps/api/app/models/workflow_models.py:61-92
+
+class TriggerConfig(BaseModel):
+    type: TriggerType.INTEGRATION
+    trigger_name: str              # "gmail_new_email_received"
+    composio_trigger_ids: List[str]  # ["trigger_abc123"]
+    
+    trigger_data: dict = {
+        "filters": {
+          "from": "important@client.com",
+          "has_label": "urgent"
+        }
+    }
+```
+
+### Webhook Registration
+
+<Steps>
+  <Step title="Workflow Creation">
+    User creates workflow with Gmail trigger
+  </Step>
+  
+  <Step title="Composio Webhook">
+    ```python
+    # Register webhook with Composio
+    trigger_id = await composio_client.create_trigger(
+        integration="gmail",
+        trigger_name="new_email_received",
+        config={
+            "filters": workflow.trigger_data,
+            "callback_url": f"{API_URL}/webhooks/composio"
+        }
+    )
+    
+    # Store trigger_id in workflow
+    workflow.trigger_config.composio_trigger_ids.append(trigger_id)
+    ```
+  </Step>
+  
+  <Step title="Event Detection">
+    When email arrives matching filters, Composio calls webhook
+  </Step>
+  
+  <Step title="Workflow Execution">
+    ```python
+    # From: apps/api/app/api/v1/webhooks/composio.py
+    
+    async def handle_composio_webhook(payload: dict):
+        # Extract workflow_id from trigger_id
+        workflow = await get_workflow_by_trigger(payload.trigger_id)
+        
+        # Build trigger context
+        context = {
+            "email_sender": payload.data.sender,
+            "email_subject": payload.data.subject,
+            "email_content": payload.data.body,
+            "trigger_timestamp": payload.timestamp
+        }
+        
+        # Execute workflow with context
+        await execute_workflow_silent(workflow, context)
+    ```
+  </Step>
+</Steps>
+
+## Integration Features by Provider
+
+### Gmail
+
+<Accordion title="Gmail Capabilities">
+  <AccordionItem title="Email Operations">
+    ```python
+    # Available tools
+    GMAIL_TOOLS = [
+        "GMAIL_SEND_MESSAGE",
+        "GMAIL_SEARCH_MESSAGES",
+        "GMAIL_GET_MESSAGE",
+        "GMAIL_CREATE_LABEL",
+        "GMAIL_MODIFY_MESSAGE",
+        "GMAIL_TRASH_MESSAGE",
+        "GMAIL_GET_THREAD",
+        "GMAIL_CREATE_DRAFT",
+        # ... 50+ more
+    ]
+    ```
+    
+    **Subagent:** `gmail_agent` with deep Gmail expertise
+    
+    **Triggers:**
+    - New email received
+    - Email labeled
+    - Email matching filter
+    - Specific sender detected
+  </AccordionItem>
+</Accordion>
+
+### Google Calendar
+
+<Accordion title="Calendar Capabilities">
+  <AccordionItem title="Event Management">
+    ```python
+    CALENDAR_TOOLS = [
+        "GOOGLECALENDAR_CREATE_EVENT",
+        "GOOGLECALENDAR_LIST_EVENTS",
+        "GOOGLECALENDAR_UPDATE_EVENT",
+        "GOOGLECALENDAR_DELETE_EVENT",
+        "GOOGLECALENDAR_FIND_FREE_TIME",
+        # ... and more
+    ]
+    ```
+    
+    **Subagent:** `calendar_agent`
+    
+    **Triggers:**
+    - Event starts (with configurable lead time)
+    - Event created
+    - Event updated
+    - Event cancelled
+  </AccordionItem>
+</Accordion>
+
+### Notion
+
+<Accordion title="Notion Capabilities">
+  <AccordionItem title="Database & Pages">
+    ```python
+    NOTION_TOOLS = [
+        "NOTION_CREATE_PAGE",
+        "NOTION_UPDATE_PAGE",
+        "NOTION_QUERY_DATABASE",
+        "NOTION_CREATE_DATABASE",
+        "NOTION_ADD_PAGE_TO_DATABASE",
+        # ... 40+ tools
+    ]
+    ```
+    
+    **Subagent:** `notion_agent`
+    
+    **Triggers:**
+    - Page created
+    - Page updated
+    - Database entry added
+  </AccordionItem>
+</Accordion>
+
+### GitHub
+
+<Accordion title="GitHub Capabilities">
+  <AccordionItem title="Repository & Issues">
+    ```python
+    GITHUB_TOOLS = [
+        "GITHUB_CREATE_ISSUE",
+        "GITHUB_CREATE_PR",
+        "GITHUB_COMMENT_ON_ISSUE",
+        "GITHUB_LIST_ISSUES",
+        "GITHUB_MERGE_PR",
+        "GITHUB_CREATE_BRANCH",
+        # ... 60+ tools
+    ]
+    ```
+    
+    **Subagent:** `github_agent`
+    
+    **Triggers:**
+    - Issue opened/closed
+    - PR opened/merged
+    - Commit pushed
+    - Release published
+    - Star received
+  </AccordionItem>
+</Accordion>
+
+## Rate Limiting & Quotas
+
+### Per-Integration Limits
+
+```python
+# From: apps/api/app/decorators.py
+
+@with_rate_limiting("integration_operations")
+async def call_integration_tool(...):
+    """
+    Rate limits:
+    - Gmail: 250 calls/minute
+    - Calendar: 100 calls/minute
+    - Notion: 50 calls/minute
+    - GitHub: 5000 calls/hour
+    
+    Limits are per user, per integration.
+    """
+```
+
+### Quota Management
+
+<Info>
+GAIA automatically manages quotas and retries with exponential backoff.
+</Info>
+
+```python
+async def execute_with_retry(tool: BaseTool, params: dict):
+    """
+    Retry logic:
+    1. Initial attempt
+    2. If rate limited, wait and retry
+    3. Exponential backoff: 1s, 2s, 4s, 8s
+    4. Max 5 retries
+    5. Notify user if all retries fail
+    """
+```
+
+## Security & Permissions
+
+### Token Storage
+
+```python
+# From: apps/api/app/utils/oauth_utils.py
+
+async def store_integration_tokens(
+    user_id: str,
+    integration_id: str,
+    tokens: dict
+):
+    """
+    Tokens are:
+    - Encrypted at rest (AES-256)
+    - Stored in PostgreSQL
+    - Associated with user_id
+    - Include refresh tokens for auto-renewal
+    """
+```
+
+### Token Refresh
+
+```python
+async def refresh_integration_token(
+    user_id: str,
+    integration_id: str
+):
+    """
+    Automatic token refresh:
+    - Checks expiry before each API call
+    - Refreshes if < 5 minutes remaining
+    - Updates stored tokens
+    - Retries failed call with new token
+    """
+```
+
+### Scope Management
+
+<Warning>
+GAIA only requests the minimum required scopes for each integration.
+</Warning>
+
+```typescript
+// Example: Gmail scopes
+const GMAIL_SCOPES = [
+  "https://www.googleapis.com/auth/gmail.readonly",    // Read emails
+  "https://www.googleapis.com/auth/gmail.send",        // Send emails
+  "https://www.googleapis.com/auth/gmail.labels",      // Manage labels
+  // NOT requesting: gmail.modify, gmail.metadata
+];
+```
+
+## Integration Dashboard
+
+### Connection Management
+
+```typescript
+// From: apps/web/src/features/integrations/components/
+
+interface IntegrationCard {
+  id: string;
+  name: string;
+  logo: string;
+  status: "connected" | "disconnected" | "error";
+  tools_count: number;
+  last_used: string;
+  permissions: string[];
+  
+  actions: {
+    connect: () => void;
+    disconnect: () => void;
+    refresh: () => void;
+    configure: () => void;
+  };
+}
+```
+
+### Usage Analytics
+
+```typescript
+interface IntegrationAnalytics {
+  integration_id: string;
+  calls_this_month: number;
+  most_used_tools: Array<{
+    tool_name: string;
+    call_count: number;
+  }>;
+  success_rate: number;
+  avg_response_time: number;
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Connect Core Tools First" icon="1">
+    Start with email, calendar, and task manager before expanding to other integrations.
+  </Card>
+  
+  <Card title="Test Integrations" icon="vial">
+    Use manual workflows to test integration behavior before enabling automatic triggers.
+  </Card>
+  
+  <Card title="Review Permissions" icon="shield-check">
+    Periodically review what permissions each integration has and revoke unused ones.
+  </Card>
+  
+  <Card title="Monitor Usage" icon="chart-line">
+    Check integration analytics to identify which tools are most valuable.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Accordion title="Common Issues">
+  <AccordionItem title="Connection Failed">
+    **Problem:** OAuth flow fails or times out
+    
+    **Solutions:**
+    - Clear browser cookies and try again
+    - Check that popup blockers aren't preventing OAuth window
+    - Verify integration is enabled in admin settings
+    - Try different browser
+  </AccordionItem>
+  
+  <AccordionItem title="Tools Not Appearing">
+    **Problem:** Connected integration but tools aren't available
+    
+    **Solutions:**
+    - Wait 30 seconds for tool indexing to complete
+    - Refresh the page
+    - Disconnect and reconnect integration
+    - Check API status page for provider outages
+  </AccordionItem>
+  
+  <AccordionItem title="Rate Limit Errors">
+    **Problem:** "Rate limit exceeded" errors
+    
+    **Solutions:**
+    - Wait for quota reset (usually 1 minute)
+    - Reduce workflow frequency
+    - Combine multiple operations into single step
+    - Contact support for quota increase
+  </AccordionItem>
+</Accordion>
+
+## Related Concepts
+
+- [Workflows](/concepts/workflows) - Use integrations in automations
+- [Agents](/concepts/agents) - Specialized agents per integration
+- [Proactive AI](/concepts/proactive-ai) - Event-driven triggers
+- [Memory System](/concepts/memory-system) - Learn from integration usage
+
+---
+
+**Next Steps:**
+- [Connect your first integration →](#)
+- [Create a cross-integration workflow →](/concepts/workflows)
+- [Browse all available integrations →](#)
