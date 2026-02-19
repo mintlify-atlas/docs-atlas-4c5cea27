@@ -1,0 +1,212 @@
+{
+  "projectType": "ai-ml",
+  "projectName": "GAIA",
+  "projectDescription": "Proactive personal AI assistant for managing email, calendar, tasks, and automating workflows with 50+ integrations.",
+  "theme": "mint",
+  "primaryColor": "#00bbff",
+  "lightColor": "#00bbff",
+  "darkColor": "#00bbff",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "features",
+              "use-cases"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/proactive-ai",
+              "concepts/workflows",
+              "concepts/memory-system",
+              "concepts/integrations",
+              "concepts/agents"
+            ]
+          },
+          {
+            "group": "User Guide",
+            "pages": [
+              "guide/chat-interface",
+              "guide/todo-management",
+              "guide/calendar-automation",
+              "guide/email-management",
+              "guide/workflow-creation",
+              "guide/goal-tracking"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/overview",
+              "integrations/gmail",
+              "integrations/google-calendar",
+              "integrations/notion",
+              "integrations/linear",
+              "integrations/slack",
+              "integrations/github"
+            ]
+          },
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-hosting/overview",
+              "self-hosting/docker-setup",
+              "self-hosting/environment-variables",
+              "self-hosting/database-setup",
+              "self-hosting/production-deployment"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "API Overview",
+            "pages": [
+              "api/introduction",
+              "api/authentication",
+              "api/rate-limits",
+              "api/webhooks"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/chat",
+              "api/todos",
+              "api/calendar",
+              "api/email",
+              "api/workflows",
+              "api/goals",
+              "api/memory",
+              "api/integrations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agent System",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "agents/overview",
+              "agents/langgraph-architecture",
+              "agents/state-management",
+              "agents/graph-manager"
+            ]
+          },
+          {
+            "group": "Agent Tools",
+            "pages": [
+              "agents/tools/calendar",
+              "agents/tools/email",
+              "agents/tools/todo",
+              "agents/tools/memory",
+              "agents/tools/integrations",
+              "agents/tools/workflow",
+              "agents/tools/code-execution"
+            ]
+          },
+          {
+            "group": "LLM Integration",
+            "pages": [
+              "agents/llm/providers",
+              "agents/llm/prompts",
+              "agents/llm/memory-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developers",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "developers/introduction",
+              "developers/development-setup",
+              "developers/project-structure",
+              "developers/commands"
+            ]
+          },
+          {
+            "group": "Frontend Development",
+            "pages": [
+              "developers/frontend/web-app",
+              "developers/frontend/desktop-app",
+              "developers/frontend/mobile-app",
+              "developers/frontend/state-management",
+              "developers/frontend/component-structure"
+            ]
+          },
+          {
+            "group": "Backend Development",
+            "pages": [
+              "developers/backend/api-architecture",
+              "developers/backend/database-models",
+              "developers/backend/services",
+              "developers/backend/workers",
+              "developers/backend/testing"
+            ]
+          },
+          {
+            "group": "Agent Development",
+            "pages": [
+              "developers/agents/creating-agents",
+              "developers/agents/creating-tools",
+              "developers/agents/creating-prompts",
+              "developers/agents/testing-agents"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "developers/contributing",
+              "developers/code-style",
+              "developers/pull-requests",
+              "developers/conventional-commits"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Proactive AI assistant that acts ahead of time on deadlines and important tasks",
+    "Automated multi-step workflows for email triage, research, and document creation",
+    "Smart todo management with AI-powered research and drafting",
+    "Unified productivity dashboard for tasks, emails, calendar, and goals",
+    "Graph-based memory system that connects tasks, projects, meetings, and documents",
+    "50+ integrations marketplace with Gmail, Slack, Notion, Linear, GitHub",
+    "Multi-platform support - Web, Desktop (macOS, Windows, Linux), Mobile",
+    "LangGraph-powered agent system with sophisticated tool orchestration",
+    "Self-hostable with Docker and full source code transparency"
+  ],
+  "publicApiSurface": [
+    "/api/v1/chat - Chat and conversation endpoints",
+    "/api/v1/todos - Todo management endpoints",
+    "/api/v1/calendar - Calendar event endpoints",
+    "/api/v1/mail - Email management endpoints",
+    "/api/v1/workflows - Workflow automation endpoints",
+    "/api/v1/goals - Goal tracking endpoints",
+    "/api/v1/memory - Memory and knowledge graph endpoints",
+    "/api/v1/integrations - Integration management endpoints",
+    "/api/v1/auth - Authentication and authorization",
+    "CalendarTool - Agent tool for calendar operations",
+    "TodoTool - Agent tool for task management",
+    "MemoryTool - Agent tool for memory operations",
+    "WorkflowTool - Agent tool for workflow execution",
+    "IntegrationTool - Agent tool for third-party integrations",
+    "CodeExecutionTool - Agent tool for running code",
+    "WebpageTool - Agent tool for web scraping and research"
+  ]
+}
